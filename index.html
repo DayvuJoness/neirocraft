@@ -2231,7 +2231,7 @@ function requestChunk(cx,cz){
   if(w){ const id=World.jobId++; World.jobs.set(id,{cx,cz,dim,gen}); w.busy++; w.postMessage({id, seed:World.seed, dim, cx, cz, opts:World.genOpts}); }
   else World.mainQueue.push([cx,cz]);
 }
-function pendingJobs(){ let n=World.mainQueue.length; for(const w of World.workers) n+=w.busy; return n + Storage.pending; }
+function pendingJobs(){ let n=World.mainQueue.length; for(const w of World.workers) n+=w.busy; if(World.remote && typeof Net!=='undefined') n+=Net.pending; return n + Storage.pending; }
 function onChunkData(cx,cz,blocks,meta,biomes,be){
   const k=ckey(cx,cz); World.loading.delete(k); if(World.chunks.has(k)) return;
   const c = new Chunk(cx,cz,blocks,meta,biomes);
@@ -3787,13 +3787,13 @@ const Net = (function(){
     Player.x=x+1; Player.y=y; Player.z=z; Player.vx=Player.vy=Player.vz=0; Player.needSurface=false; UI.showMessage(dim===1?'Незер':'Верхний мир');
   }
   S.chunkReq=new Map();
-  function requestChunkRemote(cx,cz,dim){ const k=ckey(cx,cz); S.chunkReq.set(k, performance.now()); toHost({t:'getc', cx, cz, dim}); }
+  function requestChunkRemote(cx,cz,dim){ const k=ckey(cx,cz); S.chunkReq.set(k, {t:performance.now(), cx, cz}); toHost({t:'getc', cx, cz, dim}); }
   function clientTick(){
     const now=performance.now();
     if(now-S.lastPl>100){ S.lastPl=now; toHost({t:'p', x:r2(Player.x), y:r2(Player.y), z:r2(Player.z), yaw:r2(Player.yaw), pitch:r2(Player.pitch), dim:World.dim, f:pflags(), mode:Game.mode, rd:World.renderDist}); }
     if(S.setBatch.length && now-S.lastSend>80){ toHost({t:'set', dim:World.dim, l:S.setBatch.splice(0,2000)}); S.lastSend=now; }
     // re-request chunks that never arrived
-    for(const [k,t] of S.chunkReq){ if(now-t>6000){ const [cx,cz]=k.split(',').map(Number); if(World.loading.has(k)) requestChunkRemote(cx,cz,World.dim); else S.chunkReq.delete(k); } }
+    for(const [k,r] of S.chunkReq){ if(now-r.t>6000){ if(World.loading.has(k) && !World.chunks.has(k)) requestChunkRemote(r.cx,r.cz,World.dim); else S.chunkReq.delete(k); } }
   }
   // ---------- shared ----------
   function update(dt){
@@ -3819,7 +3819,7 @@ const Net = (function(){
   function startClient(w){ S.started=true; S.chunkReq.clear(); }
   function inviteLink(){ const u=location.href.split('#')[0]; return u+'#join='+S.room; }
   return { host, join, leave, update, peerList, blockChanged, hurtPeer, giveDrop, hitMob, fx, onLocalSpawn, onLocalSet(){}, chat, requestChunk:requestChunkRemote, onChunkLoaded, hostDimChanged, startClient, inviteLink,
-    get hosting(){ return S.mode==='host'; }, get isClient(){ return S.mode==='client'; }, get active(){ return !!S.mode; }, get room(){ return S.room; }, get status(){ return S.status; }, get myId(){ return S.myId; }, get name(){ return S.name; }, get hostName(){ return S.hostName; }, S };
+    get pending(){ return S.mode==='client' ? S.chunkReq.size : 0; }, get hosting(){ return S.mode==='host'; }, get isClient(){ return S.mode==='client'; }, get active(){ return !!S.mode; }, get room(){ return S.room; }, get status(){ return S.status; }, get myId(){ return S.myId; }, get name(){ return S.name; }, get hostName(){ return S.hostName; }, S };
 })();
 
 // ===================== GAME CORE =====================
@@ -4176,13 +4176,16 @@ function renderHand(vb){
 let lastLogic=0;
 setInterval(()=>{ if(!Net.active || !document.hidden || Game.state==='menu' || Game.state==='loading') return; const now=performance.now(); const dt=Math.min(1,(now-lastLogic)/1000); if(dt<0.2) return; lastLogic=now;
   const n=Math.min(20,Math.floor(dt/0.05)); for(let i=0;i<n;i++) gameTick(); updateEntities(Math.min(dt,0.1)); Net.update(dt); if(World.ready){ updateChunks(Player.x, Player.z); processMainQueue(8); } }, 250);
+// one bad frame must never freeze the game: log the error once and keep rendering
+const frameErrs=new Set();
+function reportFrameError(e){ const k=String(e&&e.message||e); if(frameErrs.has(k)) return; frameErrs.add(k); console.error('frame error', e); try { UI.showMessage('Ошибка: '+k.slice(0,80)); } catch(_){} }
 function frame(now){
   requestAnimationFrame(frame);
   let dt=Math.min(0.1,(now-lastT)/1000); lastT=now;
   fpsN++; fpsT+=dt; if(fpsT>=0.5){ fps=Math.round(fpsN/fpsT); fpsN=0; fpsT=0; }
   if(Game.state==='boot') return;
   const playing = Game.state==='playing' || Game.state==='inventory' || Game.state==='paused' || Game.state==='dead';
-  if(Game.state==='playing' || Game.state==='inventory' || Game.state==='dead' || (Game.state==='paused' && Net.active)){
+  if(Game.state==='playing' || Game.state==='inventory' || Game.state==='dead' || (Game.state==='paused' && Net.active)) try {
     const inp = Game.state==='paused' ? {f:0,s:0,lookX:0,lookY:0} : Input.read(dt);
     if(Game.state==='playing'){ Player.yaw -= inp.lookX; Player.pitch = Math.max(-1.55, Math.min(1.55, Player.pitch - inp.lookY)); }
     const steps = Math.ceil(dt/0.025); for(let i=0;i<steps;i++) updatePlayer(dt/steps, Game.state==='playing'?inp:{f:0,s:0,jump:false,sneak:false,sprint:false});
@@ -4192,8 +4195,8 @@ function frame(now){
     if(Game.state==='playing') interact(dt, inp); else { Act.breakT=0; }
     lastLogic=now;
     if(Player.swingActive || Player.swing>0){ Player.swing+=dt*3.5; if(Player.swing>=1){ Player.swing=0; Player.swingActive=false; } }
-  }
-  if(playing || Game.state==='loading'){
+  } catch(e){ reportFrameError(e); }
+  if(playing || Game.state==='loading') try {
     if(World.ready){ updateChunks(Player.x, Player.z); processMainQueue(8); }
     meshPending(Game.state==='loading'?20:7);
     if(Game.state!=='loading'){
@@ -4209,7 +4212,7 @@ function frame(now){
       Renderer.draw(Cam, st, DYN, DYN.h, outline);
       UI.frame(dt, fps);
     }
-  }
+  } catch(e){ reportFrameError(e); }
   // autosave
   if(Game.state==='playing' && now-Game.lastSave>30000){ Game.lastSave=now; Storage.saveAll(false); }
 }
@@ -4294,6 +4297,7 @@ async function startWorld(meta){
     if(Game.mode==='creative') {}
   }
   if(!World.workers.length) initWorkers();
+  if(meta.remote && meta.spawn){ Player.y=meta.spawn[1]; Player.needSurface=false; }
   await waitChunks(Player.x, Player.z, 2);
   if(Player.needSurface){ const sy=surfaceY(Math.floor(Player.x),Math.floor(Player.z)); Player.y=sy+1; Player.needSurface=false; if(!meta.spawn || !meta.player){ Player.spawn=[Player.x,Player.y,Player.z]; meta.spawn=Player.spawn; } }
   // make sure not inside blocks
