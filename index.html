@@ -167,6 +167,7 @@ body.mcctl #dpad b.diag{ opacity:0; } body.mcctl #dpad[data-dir^="u"] b.diag{ op
 body.mcctl #dpad b.on, body.mcctl #dpad[data-dir="u"] b.u, body.mcctl #dpad[data-dir="ul"] b.ul, body.mcctl #dpad[data-dir="ur"] b.ur, body.mcctl #dpad[data-dir="d"] b.d, body.mcctl #dpad[data-dir="l"] b.l, body.mcctl #dpad[data-dir="r"] b.r{ background-image:var(--imgp); opacity:1; }
 body.mcctl #dpad.sneaking b.c{ background-image:var(--imgp); }
 body.mcctl #dpad b.c{ border-radius:0; }
+body.mcctl #dpad b, body.mcctl #btnJump, body.mcctl #btnFlyDown{ background-size:100% 100% !important; background-repeat:no-repeat !important; background-position:center !important; background-color:transparent !important; }
 body.touch .pchint{ display:none; }
 @media (max-height:500px){ h1.logo{ font-size:clamp(30px,13vh,80px); } #splash{ margin:-4px 0 2px 50%; font-size:clamp(12px,3.2vh,20px); } .screen{ gap:6px; padding-top:max(8px,env(safe-area-inset-top)); } .ver,.copy{ font-size:11px; } }
 body.mcctl #btnJump, body.mcctl #btnFlyDown{ background:var(--img) center/100% 100% no-repeat; border:none; border-radius:0; color:transparent; image-rendering:pixelated; opacity:.85; }
@@ -806,15 +807,13 @@ function settlementAt(s, ci, cj, opts){
   }
   s.sett.set(key,res); return res;
 }
-function neighbours(s, st, opts){ // settlements connected by roads
-  const out=[]; if(!opts.roads) return out;
-  const tryCell=(a,b)=>{ const t=settlementAt(s,a,b,opts); if(t) out.push(t); return !!t; };
-  if(!tryCell(st.ci+1,st.cj)) tryCell(st.ci+2,st.cj);
-  if(!tryCell(st.ci,st.cj+1)) tryCell(st.ci,st.cj+2);
-  if(!tryCell(st.ci-1,st.cj)) tryCell(st.ci-2,st.cj);
-  if(!tryCell(st.ci,st.cj-1)) tryCell(st.ci,st.cj-2);
-  return out;
-}
+// every settlement is linked by road to its 2 nearest neighbours (up to ~4 cells away); the link set is the union, so it is symmetric
+const ROAD_CELLS=4, ROAD_MAX=CELL*4.2;
+function nearTwo(s, st, opts){
+  if(st._near) return st._near; const c=[];
+  for(let di=-ROAD_CELLS;di<=ROAD_CELLS;di++) for(let dj=-ROAD_CELLS;dj<=ROAD_CELLS;dj++){ if(!di&&!dj) continue; const t=settlementAt(s,st.ci+di,st.cj+dj,opts); if(!t) continue; const d=Math.hypot(t.x-st.x,t.z-st.z); if(d<=ROAD_MAX) c.push([d,t]); }
+  c.sort((x,y)=>x[0]-y[0]); st._near=c.slice(0,2).map(x=>x[1]); return st._near; }
+function neighbours(s, st, opts){ if(!opts.roads) return []; return nearTwo(s, st, opts); }
 function groundH(s, x, z){ return column(s,x,z).h; }
 // building footprints (local W x D, front row at lz=0)
 const BTYPES = { small:{W:5,D:5}, medium:{W:7,D:5}, large:{W:7,D:9}, farm:{W:9,D:7}, smith:{W:7,D:6}, library:{W:7,D:7} };
@@ -913,10 +912,14 @@ function roadEdge(s, a, b){
   const e={cells, x0,z0,x1,z1}; s.roads.set(key,e); return e;
 }
 function nearbyEdges(s, x0, z0, x1, z1, opts){
-  const out=[]; if(!opts.roads) return out;
-  const ci0=Math.floor(x0/CELL)-2, ci1=Math.floor(x1/CELL)+1, cj0=Math.floor(z0/CELL)-2, cj1=Math.floor(z1/CELL)+1;
+  const out=[]; if(!opts.roads) return out; const seen=new Set();
+  const ci0=Math.floor(x0/CELL)-ROAD_CELLS-1, ci1=Math.floor(x1/CELL)+ROAD_CELLS+1, cj0=Math.floor(z0/CELL)-ROAD_CELLS-1, cj1=Math.floor(z1/CELL)+ROAD_CELLS+1;
   for(let ci=ci0;ci<=ci1;ci++) for(let cj=cj0;cj<=cj1;cj++){ const a=settlementAt(s,ci,cj,opts); if(!a) continue;
-    for(const b of neighbours(s,a,opts)){ if(b.ci<a.ci || (b.ci===a.ci && b.cj<a.cj)) continue; const e=roadEdge(s,a,b); if(e.x1<x0||e.x0>x1||e.z1<z0||e.z0>z1) continue; out.push(e); } }
+    // quick reject: no road from here can reach the area
+    if(a.x+ROAD_MAX<x0 || a.x-ROAD_MAX>x1 || a.z+ROAD_MAX<z0 || a.z-ROAD_MAX>z1) continue;
+    for(const b0 of neighbours(s,a,opts)){ let p=a, q=b0; if(q.ci<p.ci || (q.ci===p.ci && q.cj<p.cj)){ p=b0; q=a; } const k=p.ci+','+p.cj+'>'+q.ci+','+q.cj; if(seen.has(k)) continue; seen.add(k);
+      if(Math.max(p.x,q.x)+40<x0 || Math.min(p.x,q.x)-40>x1 || Math.max(p.z,q.z)+40<z0 || Math.min(p.z,q.z)-40>z1) continue;
+      const e=roadEdge(s,p,q); if(e.x1<x0||e.x0>x1||e.z1<z0||e.z0>z1) continue; out.push(e); } }
   return out;
 }
 function nearbySettlements(s, x0, z0, x1, z1, opts){
@@ -1672,6 +1675,7 @@ const SND = (function(){
   let ctx=null, master=null, sfx=null, mus=null, noiseBuf=null, listener={x:0,y:0,z:0,yaw:0};
   let vol = {master:0.8, sfx:1, music:0.5};
   function init(){
+    RM.unlock();
     if(ctx){ if(ctx.state==='suspended') ctx.resume(); return; }
     try { ctx = new (window.AudioContext||window.webkitAudioContext)(); } catch(e){ return; }
     master = ctx.createGain(); master.connect(ctx.destination);
@@ -1681,7 +1685,7 @@ const SND = (function(){
     setVolume(vol);
     if(RS.enabled) preloadReal();
   }
-  function setVolume(v){ Object.assign(vol,v); if(!master) return; master.gain.value=vol.master; sfx.gain.value=vol.sfx; mus.gain.value=vol.music*0.6; }
+  function setVolume(v){ Object.assign(vol,v); if(RM.el) RM.el.volume=Math.min(1,vol.music*vol.master); if(!master) return; master.gain.value=vol.master; sfx.gain.value=vol.sfx; mus.gain.value=vol.music*0.6; }
   function out(pos, gain){ // returns destination node with distance attenuation and panning
     const g = ctx.createGain(); let gv = gain===undefined?1:gain;
     if(pos){ const dx=pos.x-listener.x, dy=pos.y-listener.y, dz=pos.z-listener.z; const d=Math.sqrt(dx*dx+dy*dy+dz*dz); gv *= Math.max(0, 1 - d/24); if(gv<=0.001) return null;
@@ -1873,7 +1877,29 @@ const SND = (function(){
     const d = out(pos, o.vol); if(!d) return;
     const fn = FX[name]; if(!fn) return; try { fn(d, ctx.currentTime + (o.delay||0), o); } catch(e){ console.warn('snd',name,e.message); }
   }
-  // ---------- generative piano music (C418-ish) ----------
+  // ---------- real C418 / Lena Raine soundtrack: streamed from the Minecraft Wiki file server (not bundled) ----------
+  const MUSIC = {
+    game:['Calm1','Calm2','Calm3','Hal1','Hal2','Hal3','Hal4','Nuance1','Nuance2','Piano1','Piano2','Piano3'],
+    creative:['Creative1','Creative2','Creative3','Creative4','Creative5','Creative6'],
+    menu:['Menu1','Menu2','Menu3','Menu4'],
+    nether:['Nether1','Nether2','Nether3','Nether4'] };
+  const MUSIC_URL = n=>'https://minecraft.wiki/w/Special:FilePath/'+n+'.ogg';
+  const RM = { el:null, ok:0, fails:0, bad:new Set(), dead:false, playing:false, kind:null, nextAt:0, blocked:false, track:'',
+    unlock(){ if(this.el || typeof Audio==='undefined') { if(this.blocked && this.el && this.playing) this.el.play().then(()=>{ this.blocked=false; }).catch(()=>{}); return; }
+      const el=new Audio(); el.preload='auto'; el.crossOrigin=null; this.el=el; el.volume=Math.min(1,vol.music*vol.master);
+      el.onended=()=>{ this.playing=false; this.nextAt=performance.now() + (this.kind==='menu' ? 5000+Math.random()*15000 : 45000+Math.random()*120000); };
+      el.onerror=()=>{ if(!this.track) return; this.bad.add(this.track); this.fails++; this.playing=false; this.nextAt=performance.now()+1500; if(this.ok===0 && this.fails>=6) this.dead=true; };
+      el.onplaying=()=>{ this.ok++; }; },
+    active(){ return !this.dead && !!this.el && (typeof Game==='undefined' || Game.settings.realSounds!==false); },
+    wantKind(){ if(typeof Game==='undefined') return null; if(Game.state==='menu' || Game.state==='boot') return 'menu'; if(!musicOn) return null; if(dim===1) return 'nether'; return Game.mode==='creative' && Math.random()<2 ? (Math.random()<0.5?'creative':'game') : 'game'; },
+    tick(){ const el=this.el; el.volume=Math.min(1,vol.music*vol.master); const now=performance.now();
+      const st = (typeof Game!=='undefined') ? (Game.state==='menu'||Game.state==='boot' ? 'menu' : (dim===1?'nether':'game')) : 'menu';
+      if(this.playing){ const cur = this.kind==='creative' ? 'game' : this.kind; if(cur!==st || (!musicOn && st!=='menu') || vol.music<=0){ el.pause(); this.playing=false; this.nextAt=now+(st==='menu'?1500:8000); } return; }
+      if(vol.music<=0 || now<this.nextAt) return; const kind=this.wantKind(); if(!kind) return;
+      const list=MUSIC[kind].filter(n=>!this.bad.has(n)); if(!list.length){ this.nextAt=now+60000; return; }
+      const n=list[Math.random()*list.length|0]; this.track=n; this.kind=kind; el.src=MUSIC_URL(n); this.playing=true;
+      el.play().catch(e=>{ if(e && e.name==='NotAllowedError'){ this.blocked=true; } else { this.playing=false; this.nextAt=now+3000; } }); } };
+  // ---------- generative piano music (fallback when the real soundtrack can't be streamed) ----------
   let musicTimer=null, nextPhrase=0, musicOn=true, dim=0;
   function piano(t, f, v, dur){
     const g=ctx.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(v,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
@@ -1897,12 +1923,13 @@ const SND = (function(){
     return t - t0;
   }
   function musicTick(){
+    if(RM.active()){ RM.tick(); return; }
     if(!ctx || ctx.state!=='running' || !musicOn || vol.music<=0) return;
     const now = performance.now();
     if(now > nextPhrase){ const len = phrase(); nextPhrase = now + len*1000 + 15000 + Math.random()*45000; }
   }
   setInterval(musicTick, 1000);
-  return { names:()=>Object.keys(FX), realNames:()=>Object.keys(REAL), real:RS, preloadReal, retryReal, decodeFSB, init, play, setVolume, vol, listener, setDim:(d)=>{dim=d;}, music:(on)=>{musicOn=on; if(on) nextPhrase=performance.now()+3000;}, get ctx(){return ctx;} };
+  return { names:()=>Object.keys(FX), realNames:()=>Object.keys(REAL), real:RS, preloadReal, retryReal, decodeFSB, init, play, setVolume, vol, listener, setDim:(d)=>{dim=d;}, music:(on)=>{musicOn=on; if(on){ nextPhrase=performance.now()+3000; RM.nextAt=performance.now()+4000; } }, realMusic:RM, get ctx(){return ctx;} };
 })();
 
 // ===================== WORLD: chunks, lighting, fluids, ticks =====================
@@ -2211,7 +2238,7 @@ function initWorkers(){
     const src = document.getElementById('gen-src').textContent;
     const url = URL.createObjectURL(new Blob([src],{type:'text/javascript'}));
     const n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency||4)-1));
-    for(let i=0;i<n;i++){ const w=new Worker(url); w.busy=0; w.onmessage = e=>{ w.busy--; const j=World.jobs.get(e.data.id); World.jobs.delete(e.data.id); if(!j || e.data.error) { if(e.data.error) console.warn(e.data.error); if(j) World.loading.delete(ckey(j.cx,j.cz)); return; } if(j.dim!==World.dim || j.gen!==World.gen){ World.loading.delete(ckey(j.cx,j.cz)); return; } onChunkData(j.cx,j.cz,e.data.blocks,e.data.meta,e.data.biomes,null); };
+    for(let i=0;i<n;i++){ const w=new Worker(url); w.busy=0; w.onmessage = e=>{ w.busy=Math.max(0,w.busy-1); const j=World.jobs.get(e.data.id); World.jobs.delete(e.data.id); if(j && j.cb){ j.cb(e.data.error ? null : e.data); return; } if(!j || e.data.error) { if(e.data.error) console.warn(e.data.error); if(j) World.loading.delete(ckey(j.cx,j.cz)); return; } if(j.dim!==World.dim || j.gen!==World.gen){ World.loading.delete(ckey(j.cx,j.cz)); return; } onChunkData(j.cx,j.cz,e.data.blocks,e.data.meta,e.data.biomes,null); };
       w.onerror = ()=>{ World.workers=[]; }; World.workers.push(w); }
   } catch(e){ console.warn('worker fallback', e); World.workers=[]; }
 }
@@ -2231,6 +2258,10 @@ function requestChunk(cx,cz){
   if(w){ const id=World.jobId++; World.jobs.set(id,{cx,cz,dim,gen}); w.busy++; w.postMessage({id, seed:World.seed, dim, cx, cz, opts:World.genOpts}); }
   else World.mainQueue.push([cx,cz]);
 }
+// generate a chunk off-thread without adding it to the live world (used by the multiplayer host for other dimensions)
+function genAsync(seed, dim, cx, cz, opts){ return new Promise(res=>{ const w = World.workers.length ? World.workers.reduce((a,b)=>a.busy<=b.busy?a:b) : null;
+  const fallback=()=>res(GEN.generate(seed,dim,cx,cz,opts));
+  if(!w){ fallback(); return; } const id=World.jobId++; World.jobs.set(id,{cb:(d)=>{ if(d) res({blocks:d.blocks, meta:d.meta, biomes:d.biomes}); else fallback(); }}); w.busy++; w.postMessage({id, seed, dim, cx, cz, opts}); }); }
 function pendingJobs(){ let n=World.mainQueue.length; for(const w of World.workers) n+=w.busy; if(World.remote && typeof Net!=='undefined') n+=Net.pending; return n + Storage.pending; }
 function onChunkData(cx,cz,blocks,meta,biomes,be){
   const k=ckey(cx,cz); World.loading.delete(k); if(World.chunks.has(k)) return;
@@ -2252,11 +2283,12 @@ function updateChunks(px,pz){
   const pcx=Math.floor(px)>>4, pcz=Math.floor(pz)>>4; let R=World.renderDist+1;
   const centers=[[pcx,pcz]];
   if(typeof Net!=='undefined' && Net.hosting) for(const p of Net.peerList()) if(p.dim===World.dim && p.ny>-50){ centers.push([Math.floor(p.nx)>>4, Math.floor(p.nz)>>4]); R=Math.max(R,(p.rd||4)+1); }
-  if(pendingJobs() < 8){
+  const cap = World.remote ? 40 : 10; // chunks in flight (remote players pipeline many requests over the network)
+  if(pendingJobs() < cap-2){
     const want=[]; const seen=new Set();
     for(const [ccx,ccz] of centers) for(let dz=-R;dz<=R;dz++) for(let dx=-R;dx<=R;dx++){ const d=dx*dx+dz*dz; if(d>R*R+1) continue; const k=ckey(ccx+dx,ccz+dz); if(seen.has(k)) continue; seen.add(k); if(!World.chunks.has(k) && !World.loading.has(k)) want.push([d,ccx+dx,ccz+dz]); }
     want.sort((a,b)=>a[0]-b[0]);
-    const lim = 10 - pendingJobs();
+    const lim = cap - pendingJobs();
     for(let i=0;i<want.length && i<lim;i++) requestChunk(want[i][1],want[i][2]);
   }
   // unload far chunks (far from every player)
@@ -2269,7 +2301,7 @@ function unloadChunk(c){
   for(const [i,be] of c.be) if(be.type==='furnace') World.furnaces.delete((c.cx*16+(i&15))+','+(i>>8)+','+(c.cz*16+((i>>4)&15)));
   World.chunks.delete(ckey(c.cx,c.cz)); resetChunkCache();
 }
-function unloadAll(save){ for(const c of [...World.chunks.values()]){ if(save && c.modified) Storage.saveChunk(World.worldId, World.dim, c); for(const m of c.meshes) if(m) Renderer.freeMesh(m); } World.chunks.clear(); World.loading.clear(); World.jobs.clear(); World.mainQueue.length=0; World.furnaces.clear(); sched.clear(); schedKey.clear(); resetChunkCache(); World.gen++; for(const w of World.workers) w.busy=0; }
+function unloadAll(save){ for(const c of [...World.chunks.values()]){ if(save && c.modified) Storage.saveChunk(World.worldId, World.dim, c); for(const m of c.meshes) if(m) Renderer.freeMesh(m); } World.chunks.clear(); World.loading.clear(); for(const [id,j] of World.jobs) if(!j.cb) World.jobs.delete(id); World.mainQueue.length=0; World.furnaces.clear(); sched.clear(); schedKey.clear(); resetChunkCache(); World.gen++; for(const w of World.workers) w.busy=0; }
 function surfaceY(x,z){ for(let y=255;y>0;y--){ const id=getBlock(x,y,z); if(SOLID[id]||LIQ[id]) return y; } return 0; }
 
 // ===================== MESHER =====================
@@ -2677,7 +2709,9 @@ const Renderer = (function(){
     device.queue.writeBuffer(buf,0,uData);
   }
   let stats={draws:0,tris:0};
+  let offBusy=false;
   function draw(cam, st, dyn, hand, outline){
+    if(OFF){ if(offBusy) return; offBusy=true; } // offscreen (test) mode has no present back-pressure
     resize();
     const aspect = W/H; const proj = M4.persp(cam.fov*Math.PI/180, aspect, 0.05, 1000);
     const view = M4.view(cam.x,cam.y,cam.z,cam.yaw,cam.pitch); const vp = M4.mul(proj, view); const ivp = M4.inv(vp);
@@ -2716,7 +2750,7 @@ const Renderer = (function(){
       p2.setBindGroup(0, bindGroupHand); p2.setIndexBuffer(ibuf,'uint32'); p2.setPipeline(pipeTH);
       const n=dynUpload(dynH, hand.f, hand.n); drawBuf(p2, dynH.buf, n); p2.end();
     }
-    device.queue.submit([enc.finish()]);
+    device.queue.submit([enc.finish()]); if(OFF) device.queue.onSubmittedWorkDone().then(()=>{ offBusy=false; });
     return {vp, ivp};
   }
   function drawBuf(pass, buf, count){ pass.setVertexBuffer(0, buf); for(let s=0;s<count;s+=IDX_VERTS){ const n=Math.min(IDX_VERTS, count-s); pass.drawIndexed(n/4*6, 1, 0, s); } stats.draws++; stats.tris+=count/2; }
@@ -2822,7 +2856,7 @@ const Assets = (function(){
     creeper:{geo:'models/entity/creeper.v1.0.geo.json', id:'geometry.creeper', tex:['textures/entity/creeper/creeper.png']},
     spider:{geo:'models/entity/spider_v1.0.geo.json', id:'geometry.spider', tex:['textures/entity/spider/spider.tga'], setup:{leg0:[0,45,-45],leg1:[0,-45,45],leg2:[0,22.5,-33.3],leg3:[0,-22.5,33.3],leg4:[0,-22.5,-33.3],leg5:[0,22.5,33.3],leg6:[0,-45,-45],leg7:[0,45,45]}},
     piglin:{geo:'models/mobs.json', id:'geometry.pigzombie', tex:['textures/entity/pig/pigzombie.png']},
-    villager:{geo:'models/entity/villager_v2.geo.json', id:'geometry.villager_v2', tex:['textures/entity/villager2/villager.png','textures/entity/villager2/biomes/biome_plains.png','textures/entity/villager2/professions/farmer.tga'], styles:{oak:'plains',spruce:'taiga',snowy:'snow',acacia:'savanna',desert:'desert'}, profs:['farmer','librarian','armorer','butcher','cleric','fisherman','shepherd','toolsmith']},
+    villager:{geo:'models/entity/villager_v2.geo.json', id:'geometry.villager_v2', tex:['textures/entity/villager2/villager.png','textures/entity/villager2/biomes/biome_plains.png','textures/entity/villager2/professions/farmer.tga'], setup:{brim:[-90,0,0]}, styles:{oak:'plains',spruce:'taiga',snowy:'snow',acacia:'savanna',desert:'desert'}, profs:['farmer','librarian','armorer','butcher','cleric','fisherman','shepherd','toolsmith']},
     iron_golem:{geo:'models/mobs.json', id:'geometry.irongolem', tex:['textures/entity/iron_golem.png']},
     player:{geo:'models/mobs.json', id:'geometry.humanoid.custom', tex:['textures/entity/steve.png']}
   };
@@ -3294,7 +3328,7 @@ function submerged(e, id){ // fraction of body under liquid (0..1)
   let top=-1; const x=Math.floor(e.x), z=Math.floor(e.z);
   for(let y=Math.floor(e.y); y<=Math.floor(e.y+e.h); y++){ const b=getBlock(x,y,z); if(id? b===id : LIQ[b]){ const m=getMeta(x,y,z); top = y + ((m&8)||getBlock(x,y+1,z)===b ? 1 : (8-(m&7))/9); } else if(top>=0) break; }
   if(top<0) return 0; return Math.max(0,Math.min(1,(top-e.y)/e.h)); }
-function mobTargets(){ const out=[]; if(!Player.dead && Game.mode!=='creative') out.push(Player); if(typeof Net!=='undefined') for(const p of Net.peerList()) if(!p.dead && p.mode!=='creative') out.push(p); return out; }
+function mobTargets(){ const out=[]; if(!Player.dead && Game.mode!=='creative') out.push(Player); if(typeof Net!=='undefined') for(const p of Net.peerList()) if(!p.dead && p.mode!=='creative' && p.dim===World.dim) out.push(p); return out; }
 function attackTarget(e, t, dmg, kbk){ const dx=t.x-e.x, dz=t.z-e.z, d=Math.hypot(dx,dz)||1; const k=(kbk||4)/d; const diffMul = Game.difficulty==='easy'?0.6:Game.difficulty==='hard'?1.5:1;
   if(t===Player){ Player.damage(dmg*diffMul, e.type); Player.vx+=dx*k; Player.vz+=dz*k; Player.vy=Math.max(Player.vy,4); }
   else if(t.peer){ Net.hurtPeer(t.id, dmg*diffMul, [dx*k,4,dz*k], e.type); }
@@ -3351,7 +3385,7 @@ function mobAI(e, dt){
       if(ai.moving){ tx=-Math.sin(ai.dir); tz=-Math.cos(ai.dir); speed=def.speed*(def.golem?0.5:0.6); want=true; }
     }
     // look at nearby players, villagers look at each other
-    let bd=8*8; for(const t of [Player].concat(typeof Net!=='undefined'?Net.peerList():[])){ const d=(t.x-e.x)**2+(t.z-e.z)**2; if(d<bd && !t.dead){ bd=d; lookAt=t; } }
+    let bd=8*8; for(const t of [Player].concat(typeof Net!=='undefined'?Net.peerList().filter(p=>p.dim===World.dim):[])){ const d=(t.x-e.x)**2+(t.z-e.z)**2; if(d<bd && !t.dead){ bd=d; lookAt=t; } }
     if(!lookAt && def.villager && Math.random()<0.01) e._buddy=nearestMob(e,5,o=>o.type==='villager'); if(!lookAt && e._buddy && !e._buddy.dead) lookAt=e._buddy;
     // follow player holding wheat/seeds
     if(def.passive && !def.villager && bd<64 && bd>4 && (Player.held()===idOf('wheat') || (e.type==='chicken' && Player.held()===idOf('wheat_seeds')))){ tx=Player.x-e.x; tz=Player.z-e.z; speed=def.speed; want=true; ai.moving=false; }
@@ -3461,14 +3495,14 @@ function updateEntities(dt){
       const sp=Math.hypot(e.vx,e.vy,e.vz);
       if(hit){ hurtEntity(hit, Math.ceil(sp/6), e.owner===Player?'player':'arrow', [e.vx*0.15,0,e.vz*0.15]); e.remove=true; SND.play('arrow_hit',e); continue; }
       if(e.owner!==Player && Math.abs(Player.x-nx)<0.5 && ny>Player.y && ny<Player.y+1.8 && Math.abs(Player.z-nz)<0.5){ Player.damage(Math.ceil(sp/7)*(Game.difficulty==='hard'?1.5:1),'arrow'); Player.vx+=e.vx*0.1; Player.vz+=e.vz*0.1; e.remove=true; SND.play('arrow_hit',e); continue; }
-      if(typeof Net!=='undefined' && e.owner && e.owner.mob){ let hp=null; for(const q of Net.peerList()) if(!q.dead && Math.abs(q.x-nx)<0.5 && ny>q.y && ny<q.y+1.8 && Math.abs(q.z-nz)<0.5) hp=q; if(hp){ Net.hurtPeer(hp.id, Math.ceil(sp/7), [e.vx*0.1,2,e.vz*0.1], 'arrow'); e.remove=true; SND.play('arrow_hit',e); continue; } }
+      if(typeof Net!=='undefined' && e.owner && e.owner.mob){ let hp=null; for(const q of Net.peerList()) if(!q.dead && q.dim===World.dim && Math.abs(q.x-nx)<0.5 && ny>q.y && ny<q.y+1.8 && Math.abs(q.z-nz)<0.5) hp=q; if(hp){ Net.hurtPeer(hp.id, Math.ceil(sp/7), [e.vx*0.1,2,e.vz*0.1], 'arrow'); e.remove=true; SND.play('arrow_hit',e); continue; } }
       if(SOLID[getBlock(Math.floor(nx),Math.floor(ny),Math.floor(nz))]){ e.stuck=true; e.life=Math.min(e.life,20); SND.play('arrow_hit',e); continue; }
       e.x=nx; e.y=ny; e.z=nz; e.yaw=Math.atan2(-e.vx,-e.vz); e.pitch=Math.atan2(e.vy,Math.hypot(e.vx,e.vz));
       continue;
     }
     if(e.mob){
       if(e.hurtT>0) e.hurtT-=dt; if(e.hurtCd>0) e.hurtCd-=dt;
-      if(World.remote){ netLerp(e,dt); continue; }
+      if(World.remote && e.netId){ netLerp(e,dt); continue; }
       if(e.dead){ e.deadT+=dt; e.vx*=0.9; e.vz*=0.9; e.vy-=25*dt; moveEntity(e,e.vx*dt,e.vy*dt,e.vz*dt); if(e.deadT>1){ L.splice(i,1); } continue; }
       mobAI(e,dt); if(e.remove) continue;
       mobPhysics(e,dt);
@@ -3477,7 +3511,7 @@ function updateEntities(dt){
       const sp=Math.hypot(e.vx,e.vz); e.speedA=sp*0.1; e.walk+=sp*dt*4;
       if(e.y<-30) e.remove=true;
       // despawn hostiles far from every player
-      if(MOB[e.type].hostile){ let dd=Math.hypot(e.x-Player.x,e.z-Player.z); if(typeof Net!=='undefined') for(const p of Net.peerList()) dd=Math.min(dd,Math.hypot(e.x-p.x,e.z-p.z)); if(dd>80) e.remove=true; }
+      if(MOB[e.type].hostile){ let dd=Math.hypot(e.x-Player.x,e.z-Player.z); if(typeof Net!=='undefined') for(const p of Net.peerList()) if(p.dim===World.dim) dd=Math.min(dd,Math.hypot(e.x-p.x,e.z-p.z)); if(dd>80) e.remove=true; }
     }
   }
 }
@@ -3490,7 +3524,7 @@ function netLerp(e, dt){ // client side: follow host snapshots
 // spawning
 const villageSpawned=new Set();
 function chunkMobs(c){
-  if(World.remote || World.dim!==0 || !World.genOpts) return;
+  if((World.remote && !Net.localAuthority) || World.dim!==0 || !World.genOpts) return;
   let list; try { list=GEN.villagersIn(World.seed,c.cx,c.cz,World.genOpts); } catch(e){ return; }
   for(const [type,fx,fy,fz,style] of list){ const x=Math.floor(fx), z=Math.floor(fz), y=Math.floor(fy); const k=type+':'+x+','+y+','+z; if(villageSpawned.has(k)) continue; villageSpawned.add(k);
     const free=(yy)=>!SOLID[getBlock(x,yy,z)] && !SOLID[getBlock(x,yy+1,z)] && (type!=='iron_golem' || !SOLID[getBlock(x,yy+2,z)]);
@@ -3501,7 +3535,7 @@ function chunkMobs(c){
 let spawnT=0;
 function spawnTick(dt){
   spawnT-=dt; if(spawnT>0) return; spawnT=1;
-  if(World.remote) return; let passive=0, hostile=0; for(const e of Entities.list){ if(!e.mob || e.vkey || e.type==='player') continue; if(MOB[e.type].passive) passive++; else if(MOB[e.type].hostile||MOB[e.type].neutral) hostile++; }
+  if(World.remote && !Net.localAuthority) return; let passive=0, hostile=0; for(const e of Entities.list){ if(!e.mob || e.vkey || e.type==='player') continue; if(MOB[e.type].passive) passive++; else if(MOB[e.type].hostile||MOB[e.type].neutral) hostile++; }
   const cs=[Player]; if(typeof Net!=='undefined') for(const p of Net.peerList()) if(p.dim===World.dim && !p.dead) cs.push(p); const C=cs[Math.random()*cs.length|0]; const ang=Math.random()*6.28, dist=20+Math.random()*28; const x=Math.floor(C.x+Math.cos(ang)*dist), z=Math.floor(C.z+Math.sin(ang)*dist);
   if(!isLoaded(x,z)) return;
   if(World.dim===1){ if(hostile>=10) return; for(let t=0;t<6;t++){ const y=32+Math.floor(Math.random()*80); const b=getBlock(x,y-1,z); if((b===B.netherrack||b===B.crimson_nylium||b===B.soul_sand) && getBlock(x,y,z)===0 && getBlock(x,y+1,z)===0){ const n=1+(Math.random()*3|0); for(let k=0;k<n;k++) spawnMob('piglin',x+0.5+k*0.3,y,z+0.5); return; } } return; }
@@ -3672,6 +3706,18 @@ const Net = (function(){
     for(const i of order){ try { setStatus('Подключение к серверу связи '+(i+1)+'…'); const c=new MQTT(brokerUrl(i)); await c.connect(7000); return [c,i]; } catch(e){ lastErr=e; } }
     throw lastErr||new Error('нет связи');
   }
+  // ---------- chunk wire format: [biomes 256][blocks up to the highest non-air layer][meta], deflated ----------
+  async function packChunk(blocks, meta, biomes){ let top=255; for(;top>0;top--){ const o=top<<8; let any=false; for(let i=0;i<256;i++) if(blocks[o+i]){ any=true; break; } if(any) break; }
+    const n=(top+1)*256; const raw=new Uint8Array(256+2*n); raw.set(biomes,0); raw.set(blocks.subarray(0,n),256); raw.set(meta.subarray(0,n),256+n); const z=await Storage.compress(raw); return {n, c:z.c, d:z.d}; }
+  async function unpackChunk(bin, n, c){ const raw=await Storage.decompress(bin, c); const blocks=new Uint8Array(65536), meta=new Uint8Array(65536); blocks.set(raw.subarray(256,256+n)); meta.set(raw.subarray(256+n,256+2*n)); return {blocks, meta, biomes:raw.slice(0,256)}; }
+  // ---------- host: chunks of dimensions the host is not in (a friend went to the Nether alone) ----------
+  const side=new Map(), sideLoading=new Map(); const skey=(d,x,z)=>d+':'+x+':'+z;
+  function sideChunk(dim,cx,cz){ const k=skey(dim,cx,cz); const c=side.get(k); if(c){ c.t=performance.now(); return Promise.resolve(c); } if(sideLoading.has(k)) return sideLoading.get(k);
+    const pr=(async()=>{ let d=null; try { d=await Storage.loadChunk(World.worldId, dim, cx, cz); } catch(e){} if(!d){ const r=await genAsync(World.seed, dim, cx, cz, World.genOpts); d={blocks:r.blocks, meta:r.meta, biomes:r.biomes, be:null}; }
+      const c={cx, cz, dim, blocks:d.blocks, meta:d.meta, biomes:d.biomes, be:new Map(d.be||[]), modified:false, t:performance.now()}; side.set(k,c); sideLoading.delete(k); return c; })();
+    sideLoading.set(k,pr); return pr; }
+  async function flushSide(dim){ const jobs=[]; for(const [k,c] of side){ if(dim!==undefined && c.dim!==dim) continue; if(c.modified) jobs.push(Storage.saveChunk(World.worldId, c.dim, c)); side.delete(k); } await Promise.all(jobs); }
+  function sideMaintenance(now){ for(const [k,c] of side){ if(c.modified && now-c.t>3000) Storage.saveChunk(World.worldId, c.dim, c); if(now-c.t>120000 && !c.modified) side.delete(k); } }
   // ---------- HOST ----------
   async function host(){
     if(S.mode) return S.room;
@@ -3692,29 +3738,38 @@ const Net = (function(){
     if(!p) { toPeer(id,{t:'who'}); return; }
     p.last=performance.now();
     switch(m.t){
-      case 'p': { p.nx=m.x; p.ny=m.y; p.nz=m.z; p.nyaw=m.yaw; p.headPitch=m.pitch; p.dim=m.dim; p.swimming=!!(m.f&1); p.sneak=!!(m.f&2); if(m.f&4) p.swing=1; p.dead=!!(m.f&8); p.mode=m.mode; p.rd=m.rd||4; if(p.y<-50){ p.x=m.x; p.y=m.y; p.z=m.z; } break; }
-      case 'getc': sendChunkTo(id, m.cx, m.cz, m.dim); break;
-      case 'set': for(const s of m.l){ applyRemoteSet(s, m.dim); } break;
+      case 'p': { if(p.dimSeen!==undefined && p.dimSeen!==m.dim){ const line='§e'+p.name+(m.dim===1?' отправился в Незер':' вернулся в Верхний мир'); UI.chat(line); toAll({t:'chat', text:line}); } p.dimSeen=m.dim; p.nx=m.x; p.ny=m.y; p.nz=m.z; p.nyaw=m.yaw; p.headPitch=m.pitch; p.dim=m.dim; p.swimming=!!(m.f&1); p.sneak=!!(m.f&2); if(m.f&4) p.swing=1; p.dead=!!(m.f&8); p.mode=m.mode; p.rd=m.rd||4; if(p.y<-50){ p.x=m.x; p.y=m.y; p.z=m.z; } break; }
+      case 'getc': if(m.l) for(const [cx,cz] of m.l) sendChunkTo(id, cx, cz, m.dim); else sendChunkTo(id, m.cx, m.cz, m.dim); break;
+      case 'set': applyRemoteSets(m.l, m.dim); break;
       case 'hit': { const e=Entities.list.find(o=>o.netId===m.nid || o.id===m.nid); if(e && e.mob && !e.dead){ e.hurtCd=0; hurtEntity(e, m.dmg, 'peer', m.kb, p); } break; }
-      case 'spawn': { if(m.dim!==World.dim) break; const e=spawnMob(m.type, m.x, m.y, m.z); e.yaw=e.tyaw=m.yaw||0; if(m.type==='villager'){ e.style=villagerStyleAt(m.x,m.z); e.home=null; } break; }
+      case 'spawn': { if(m.dim!==World.dim){ toPeer(id,{t:'spawnLocal', to:id, type:m.type, x:m.x, y:m.y, z:m.z, yaw:m.yaw}); break; } const e=spawnMob(m.type, m.x, m.y, m.z); e.yaw=e.tyaw=m.yaw||0; if(m.type==='villager'){ e.style=villagerStyleAt(m.x,m.z); e.home=null; } break; }
       case 'chat': { const line=p.name+': '+String(m.text).slice(0,200); UI.chat(line); toAll({t:'chat', text:line}); break; }
       case 'bye': S.peers.delete(id); UI.chat('§e'+p.name+' вышел из игры'); break;
     }
   }
-  function applyRemoteSet(s, dim){ if(dim!==World.dim) return; const [x,y,z,id,meta]=s; const c=getChunk(x>>4,z>>4);
-    if(!c){ const k=ckey(x>>4,z>>4); if(!S.pendingSets.has(k)) S.pendingSets.set(k,[]); S.pendingSets.get(k).push(s); requestChunk(x>>4,z>>4); return; }
-    if(getBlock(x,y,z)!==id || getMeta(x,y,z)!==meta){ setBlock(x,y,z,id,meta,{dropBE:Game.mode==='survival'}); } }
+  function applyRemoteSet(s, dim){ applyRemoteSets([s], dim); }
+  async function applyRemoteSets(list, dim){
+    if(dim!==World.dim){ // somebody else's dimension: edit the stored chunk and tell everybody there
+      for(const [x,y,z,id,meta] of list){ const c=await sideChunk(dim, x>>4, z>>4); const i=(y<<8)|((z&15)<<4)|(x&15); if(c.blocks[i]!==id && c.be.has(i)) c.be.delete(i); c.blocks[i]=id; c.meta[i]=meta; c.modified=true; c.t=performance.now(); }
+      toAll({t:'set', dim, l:list}); return; }
+    // two passes: place everything first (a portal is placed block by block), then let physics react
+    const done=[];
+    for(const s of list){ const [x,y,z,id,meta]=s; const c=getChunk(x>>4,z>>4);
+      if(!c){ const k=ckey(x>>4,z>>4); if(!S.pendingSets.has(k)) S.pendingSets.set(k,[]); S.pendingSets.get(k).push(s); requestChunk(x>>4,z>>4); continue; }
+      if(getBlock(x,y,z)!==id || getMeta(x,y,z)!==meta){ setBlock(x,y,z,id,meta,{dropBE:Game.mode==='survival', noUpdate:true}); done.push(s); } }
+    for(const [x,y,z] of done) neighborUpdate(x,y,z);
+  }
   async function sendChunkTo(id, cx, cz, dim){
-    if(dim!==World.dim){ toPeer(id,{t:'dim', dim:World.dim, x:Player.x, y:Player.y, z:Player.z}); return; }
-    const c=getChunk(cx,cz);
-    if(!c){ const k=ckey(cx,cz); if(!S.chunkWait.has(k)) S.chunkWait.set(k,new Set()); S.chunkWait.get(k).add(id); requestChunk(cx,cz); return; }
+    let c;
+    if(dim!==World.dim) c=await sideChunk(dim, cx, cz);
+    else { c=getChunk(cx,cz); if(!c){ const k=ckey(cx,cz); if(!S.chunkWait.has(k)) S.chunkWait.set(k,new Set()); S.chunkWait.get(k).add(id); requestChunk(cx,cz); return; } }
     const be=[...c.be.entries()].map(([i,v])=>[i,JSON.parse(JSON.stringify(v))]);
-    const rec=await Storage.encodeChunk(c.blocks.slice(), c.meta.slice(), c.biomes, be);
-    toPeer(id, {t:'chunk', cx, cz, dim, c:rec.c, bio:Array.from(rec.bio), be:rec.be}, rec.d);
+    const pk=await packChunk(c.blocks, c.meta, c.biomes);
+    toPeer(id, {t:'chunk', cx, cz, dim, n:pk.n, c:pk.c, be:be.length?be:null}, pk.d);
   }
   function onChunkLoaded(c){
     if(S.mode!=='host') return; const k=ckey(c.cx,c.cz);
-    const ps=S.pendingSets.get(k); if(ps){ S.pendingSets.delete(k); for(const s of ps) applyRemoteSet(s, World.dim); }
+    const ps=S.pendingSets.get(k); if(ps){ S.pendingSets.delete(k); applyRemoteSets(ps, World.dim); }
     const w=S.chunkWait.get(k); if(w){ S.chunkWait.delete(k); for(const id of w) sendChunkTo(id, c.cx, c.cz, World.dim); }
   }
   function hostTick(){
@@ -3722,6 +3777,7 @@ const Net = (function(){
     // drop silent peers
     for(const [id,p] of S.peers) if(now-p.last>20000){ S.peers.delete(id); UI.chat('§e'+p.name+' отключился'); }
     if(S.setBatch.length && now-S.lastSend>100){ const l=S.setBatch.splice(0, 2000); toAll({t:'set', dim:World.dim, l}); S.lastSend=now; }
+    if(S.hostDimSeen!==undefined && S.hostDimSeen!==World.dim && S.peers.size){ const line='§e'+S.name+(World.dim===1?' отправился в Незер':' вернулся в Верхний мир'); UI.chat(line); toAll({t:'chat', text:line}); } S.hostDimSeen=World.dim;
     if(!S.peers.size) return;
     if(now-S.lastPl>100){ S.lastPl=now; const l=[[ 'host', S.name, r2(Player.x), r2(Player.y), r2(Player.z), r2(Player.yaw), r2(Player.pitch), World.dim, pflags(), Game.mode ]];
       for(const p of S.peers.values()) l.push([p.id, p.name, r2(p.nx), r2(p.ny), r2(p.nz), r2(p.nyaw), r2(p.headPitch), p.dim, (p.swimming?1:0)|(p.sneak?2:0)|(p.swing>0.9?4:0)|(p.dead?8:0), p.mode]);
@@ -3732,6 +3788,7 @@ const Net = (function(){
       toAll({t:'mobs', dim:World.dim, l}); }
     if(now-S.lastTime>5000){ S.lastTime=now; toAll({t:'time', time:World.time, mode:Game.mode, difficulty:Game.difficulty}); }
     if(S.fx.length){ toAll({t:'fx', l:S.fx.splice(0)}); }
+    if(now-(S.lastSide||0)>2000){ S.lastSide=now; sideMaintenance(now); }
   }
   function r2(v){ return Math.round(v*100)/100; }
   function pflags(){ return (Player.swimming?1:0)|(Player.sneak?2:0)|(Player.swing>0&&Player.swing<0.3?4:0)|(Player.dead?8:0); }
@@ -3757,12 +3814,12 @@ const Net = (function(){
       case 'welcome': if(m.to!==S.myId) return; S.hostName=m.host; onWelcome(m); if(S.started){ /* re-hello after reconnect */ } break;
       case 'who': toHost({t:'hello', name:S.name}); break;
       case 'chunk': {
-        if(!S.started || m.dim!==World.dim) return; const k=ckey(m.cx,m.cz); if(!World.loading.has(k) && World.chunks.has(k)) return;
-        S.chunkReq.delete(k);
-        Storage.decodeChunk({d:bin.slice(), c:m.c, bio:m.bio, be:m.be}).then(d=>{ if(m.dim!==World.dim || World.chunks.has(k)) return; onChunkData(m.cx,m.cz,d.blocks,d.meta,d.biomes,d.be); });
+        if(!S.started || m.dim!==World.dim) return; const k=ckey(m.cx,m.cz); S.chunkReq.delete(k); if(World.chunks.has(k)) return;
+        const want=World.dim;
+        unpackChunk(bin.slice(), m.n, m.c).then(d=>{ if(want!==World.dim || World.chunks.has(k)) return; onChunkData(m.cx,m.cz,d.blocks,d.meta,d.biomes,m.be); }).catch(e=>console.warn('chunk', e));
         break; }
       case 'set': { if(!S.started || m.dim!==World.dim) return; S.applying=true; try { for(const [x,y,z,id,meta] of m.l){ if(!getChunk(x>>4,z>>4)) continue; if(getBlock(x,y,z)!==id || getMeta(x,y,z)!==meta) setBlock(x,y,z,id,meta,{noUpdate:true}); } } finally { S.applying=false; } break; }
-      case 'pl': { if(!S.started) return; const seen=new Set();
+      case 'pl': { if(!S.started) return; const seen=new Set(); for(const r of m.l) if(r[0]==='host') S.hostDim=r[7];
         for(const [id,name,x,y,z,yaw,pitch,dim,f,mode] of m.l){ if(id===S.myId) continue; seen.add(id); let p=S.peers.get(id); if(!p){ p=mkPeer(id,name); p.x=x; p.y=y; p.z=z; S.peers.set(id,p); }
           p.nx=x; p.ny=y; p.nz=z; p.nyaw=yaw; p.headPitch=pitch; p.dim=dim; p.swimming=!!(f&1); p.sneak=!!(f&2); if(f&4) p.swing=1; p.dead=!!(f&8); p.mode=mode; p.last=performance.now(); }
         for(const id of [...S.peers.keys()]) if(!seen.has(id)) S.peers.delete(id);
@@ -3778,23 +3835,28 @@ const Net = (function(){
       case 'give': if(m.to!==S.myId) return; dropItem(m.x,m.y,m.z,m.id,m.n); break;
       case 'chat': UI.chat(m.text); break;
       case 'fx': for(const [n,x,y,z] of m.l){ if(n==='explode'){ SND.play('explode',{x,y,z},{vol:1.5}); Particles.burst(x,y,z,'smoke',30,2); } else SND.play(n,{x,y,z}); } break;
-      case 'dim': if(m.to && m.to!==S.myId) return; if(S.started && m.dim!==World.dim){ clientSwitchDim(m.dim, m.x, m.y, m.z); } break;
+      case 'spawnLocal': if(m.to!==S.myId) return; { const e=spawnMob(m.type,m.x,m.y,m.z); e.yaw=e.tyaw=m.yaw||0; } break;
       case 'bye': if(S.started){ UI.chat('§cХост закрыл мир'); setTimeout(()=>{ leave(); UI.quitRemote('Хост закрыл мир'); }, 800); } break;
     }
   }
-  async function clientSwitchDim(dim, x, y, z){
-    World.ready=false; unloadAll(false); Entities.list.length=0; World.dim=dim; SND.setDim(dim); S.chunkReq.clear(); World.ready=true;
-    Player.x=x+1; Player.y=y; Player.z=z; Player.vx=Player.vy=Player.vz=0; Player.needSurface=false; UI.showMessage(dim===1?'Незер':'Верхний мир');
-  }
   S.chunkReq=new Map();
-  function requestChunkRemote(cx,cz,dim){ const k=ckey(cx,cz); S.chunkReq.set(k, {t:performance.now(), cx, cz}); toHost({t:'getc', cx, cz, dim}); }
+  S.reqQ=[];
+  function requestChunkRemote(cx,cz,dim){ const k=ckey(cx,cz); S.chunkReq.set(k, {t:performance.now(), cx, cz, dim}); S.reqQ.push([cx,cz,dim]);
+    if(!S.reqFlush) S.reqFlush=setTimeout(()=>{ S.reqFlush=null; if(S.reqQ.length && S.mode==='client') flushByDim(S.reqQ.splice(0), (d,l)=>({t:'getc', dim:d, l})); }, 0); }
+  function flushByDim(list, mk){ const g=new Map(); for(const r of list){ const d=r[r.length-1]; if(!g.has(d)) g.set(d,[]); g.get(d).push(r.slice(0,-1)); } for(const [d,l] of g) toHost(mk(d,l)); }
   function clientTick(){
     const now=performance.now();
     if(now-S.lastPl>100){ S.lastPl=now; toHost({t:'p', x:r2(Player.x), y:r2(Player.y), z:r2(Player.z), yaw:r2(Player.yaw), pitch:r2(Player.pitch), dim:World.dim, f:pflags(), mode:Game.mode, rd:World.renderDist}); }
-    if(S.setBatch.length && now-S.lastSend>80){ toHost({t:'set', dim:World.dim, l:S.setBatch.splice(0,2000)}); S.lastSend=now; }
+    if(S.reqQ.length){ flushByDim(S.reqQ.splice(0), (dim,l)=>({t:'getc', dim, l})); }
+    if(S.setBatch.length && now-S.lastSend>80){ flushByDim(S.setBatch.splice(0,2000), (dim,l)=>({t:'set', dim, l})); S.lastSend=now; }
     // re-request chunks that never arrived
-    for(const [k,r] of S.chunkReq){ if(now-r.t>6000){ if(World.loading.has(k) && !World.chunks.has(k)) requestChunkRemote(r.cx,r.cz,World.dim); else S.chunkReq.delete(k); } }
+    for(const [k,r] of S.chunkReq){ if(now-r.t>8000){ if(r.dim===World.dim && World.loading.has(k) && !World.chunks.has(k)) requestChunkRemote(r.cx,r.cz,World.dim); else S.chunkReq.delete(k); } }
+    // who simulates the world around me: the host when we share a dimension, otherwise this device
+    const local=localAuthority();
+    if(local!==S.wasLocal){ S.wasLocal=local; for(let i=Entities.list.length-1;i>=0;i--){ const e=Entities.list[i]; if(e.mob && (local ? e.netId : !e.netId)) Entities.list.splice(i,1); }
+      if(local) UI.showMessage('Хост в другом измерении — мир вокруг вас живёт на вашем устройстве'); }
   }
+  function localAuthority(){ return S.mode==='client' && !!S.started && S.hostDim!==undefined && S.hostDim!==World.dim; }
   // ---------- shared ----------
   function update(dt){
     if(!S.mode) return;
@@ -3805,7 +3867,7 @@ const Net = (function(){
   }
   function blockChanged(x,y,z,id,meta){
     if(!S.mode || S.applying) return;
-    S.setBatch.push([x,y,z,id,meta]);
+    S.setBatch.push(S.mode==='client' ? [x,y,z,id,meta,World.dim] : [x,y,z,id,meta]);
   }
   function hurtPeer(id, amt, kb, src){ if(S.mode!=='host') return; toPeer(id, {t:'dmg', to:id, amt, kb, src}); }
   function giveDrop(id, x,y,z, item, n){ if(S.mode!=='host') return; toPeer(id, {t:'give', to:id, x,y,z, id:item, n}); }
@@ -3813,12 +3875,12 @@ const Net = (function(){
   function fx(n,x,y,z){ if(S.mode==='host' && S.peers.size) S.fx.push([n,r2(x),r2(y),r2(z)]); }
   function onLocalSpawn(type,x,y,z,yaw){ if(S.mode==='client') toHost({t:'spawn', type, x, y, z, yaw, dim:World.dim}); }
   function chat(text){ text=String(text||'').trim(); if(!text) return; if(S.mode==='client') toHost({t:'chat', text}); else if(S.mode==='host'){ const line=S.name+': '+text; UI.chat(line); toAll({t:'chat', text:line}); } else UI.chat(text); }
-  function hostDimChanged(){ if(S.mode==='host' && S.peers.size) toAll({t:'dim', dim:World.dim, x:Player.x, y:Player.y, z:Player.z}); }
+  function hostDimChanged(){}
   function leave(){ if(!S.mode) return; try { if(S.mode==='host') toAll({t:'bye'}); else toHost({t:'bye'}); } catch(e){} const c=S.cli; setTimeout(()=>c&&c.close(), 200);
-    clearInterval(S.joinTimer); S.mode=null; S.peers.clear(); S.setBatch.length=0; S.chunkWait.clear(); S.pendingSets.clear(); S.started=false; World.remote=false; setStatus(''); }
-  function startClient(w){ S.started=true; S.chunkReq.clear(); }
+    clearInterval(S.joinTimer); S.mode=null; S.peers.clear(); S.setBatch.length=0; S.reqQ.length=0; S.hostDim=undefined; S.wasLocal=undefined; side.clear(); S.chunkWait.clear(); S.pendingSets.clear(); S.started=false; World.remote=false; setStatus(''); }
+  function startClient(w){ S.started=true; S.chunkReq.clear(); S.hostDim=w.dim; clearInterval(S.hb); S.hb=setInterval(()=>{ if(S.mode!=='client'){ clearInterval(S.hb); return; } if(performance.now()-S.lastPl>1500){ S.lastPl=performance.now(); toHost({t:'p', x:r2(Player.x), y:r2(Player.y), z:r2(Player.z), yaw:r2(Player.yaw), pitch:r2(Player.pitch), dim:World.dim, f:pflags(), mode:Game.mode, rd:World.renderDist}); } }, 1000); }
   function inviteLink(){ const u=location.href.split('#')[0]; return u+'#join='+S.room; }
-  return { host, join, leave, update, peerList, blockChanged, hurtPeer, giveDrop, hitMob, fx, onLocalSpawn, onLocalSet(){}, chat, requestChunk:requestChunkRemote, onChunkLoaded, hostDimChanged, startClient, inviteLink,
+  return { host, join, leave, update, peerList, blockChanged, hurtPeer, giveDrop, hitMob, fx, onLocalSpawn, onLocalSet(){}, chat, requestChunk:requestChunkRemote, onChunkLoaded, hostDimChanged, flushSide, get localAuthority(){ return localAuthority(); }, startClient, inviteLink,
     get pending(){ return S.mode==='client' ? S.chunkReq.size : 0; }, get hosting(){ return S.mode==='host'; }, get isClient(){ return S.mode==='client'; }, get active(){ return !!S.mode; }, get room(){ return S.room; }, get status(){ return S.status; }, get myId(){ return S.myId; }, get name(){ return S.name; }, get hostName(){ return S.hostName; }, S };
 })();
 
@@ -3873,7 +3935,7 @@ const Player = { x:0,y:80,z:0, vx:0,vy:0,vz:0, w:0.6,h:1.8, yaw:0,pitch:0, onGro
   respawn(){
     this.dead=false; this.hp=20; this.food=20; this.sat=5; this.air=300; this.fireT=0; this.vx=this.vy=this.vz=0; this.fall=0; this.swimming=false; this.h=1.8;
     const go = ()=>{ const s=this.spawn||[0.5,100,0.5]; this.x=s[0]; this.z=s[2]; this.y=s[1]; this.needSurface=true; };
-    if(World.dim!==0 && !World.remote) switchDimension(0, null).then(go); else go();
+    if(World.dim!==0) switchDimension(0, null).then(go); else go();
     UI.refreshStats(); UI.refreshHotbar();
   }
 };
@@ -3974,7 +4036,7 @@ function useItem(h, ray){
     if(getBlock(px,py,pz)===0){ if(!tryLightPortal(px,py,pz)){ setBlock(px,py,pz,B.fire); schedule(px,py,pz,30); } } return true; }
   if(id===IT.bone_meal.id && h && h.id===B.grass){ for(let i=0;i<12;i++){ const x=h.x+(Math.random()*7|0)-3, z=h.z+(Math.random()*7|0)-3; for(let y=h.y+2;y>=h.y-2;y--){ if(getBlock(x,y,z)===B.grass && getBlock(x,y+1,z)===0){ setBlock(x,y+1,z, Math.random()<0.8?B.tall_grass:(Math.random()<0.5?B.dandelion:B.poppy)); Particles.burst(x+0.5,y+1.3,z+0.5,'heart',1,0.2); break; } } } Inventory.consume(1); return true; }
   const def=itemDef(id);
-  if(def && def.spawn && h){ const px=h.x+h.n[0]+0.5, py=h.y+h.n[1], pz=h.z+h.n[2]+0.5; if(World.remote) Net.onLocalSpawn(def.spawn,px,py,pz,Player.yaw+Math.PI); else { const e=spawnMob(def.spawn, px, py, pz); e.yaw=e.tyaw=Player.yaw+Math.PI; if(def.spawn==='villager'){ e.style=villagerStyleAt(px,pz); e.home=null; } } Inventory.consume(1); SND.play('pop',{x:px,y:py,z:pz}); return true; }
+  if(def && def.spawn && h){ const px=h.x+h.n[0]+0.5, py=h.y+h.n[1], pz=h.z+h.n[2]+0.5; if(World.remote && !Net.localAuthority) Net.onLocalSpawn(def.spawn,px,py,pz,Player.yaw+Math.PI); else { const e=spawnMob(def.spawn, px, py, pz); e.yaw=e.tyaw=Player.yaw+Math.PI; if(def.spawn==='villager'){ e.style=villagerStyleAt(px,pz); e.home=null; } } Inventory.consume(1); SND.play('pop',{x:px,y:py,z:pz}); return true; }
   if(def && def.tool && def.tool.type==='hoe' && h && (h.id===B.grass||h.id===B.dirt||h.id===B.dirt_path) && getBlock(h.x,h.y+1,h.z)===0){ setBlock(h.x,h.y,h.z,B.farmland); SND.play('step',{x:h.x+0.5,y:h.y+1,z:h.z+0.5},{mat:'gravel'}); Inventory.damageHeld(1); Net.onLocalSet(h.x,h.y,h.z); return true; }
   if(id===IT.wheat_seeds.id && h && h.id===B.farmland && h.n[1]===1 && getBlock(h.x,h.y+1,h.z)===0){ setBlock(h.x,h.y+1,h.z,B.wheat,0); SND.play('place',{x:h.x+0.5,y:h.y+1,z:h.z+0.5},{mat:'grass'}); Inventory.consume(1); Net.onLocalSet(h.x,h.y+1,h.z); return true; }
   if(id<256 && BLOCKS[id].door && h){ let px=h.x+h.n[0], py=h.y+h.n[1], pz=h.z+h.n[2]; if(REPL[h.id]&&!LIQ[h.id]){ px=h.x;py=h.y;pz=h.z; }
@@ -4006,6 +4068,7 @@ async function switchDimension(dim, portalFrom){
   Game.state='loading'; UI.showLoading(dim===1?'Вход в Незер…':'Возвращение в Верхний мир…');
   SND.play('travel');
   await Storage.saveAll(true);
+  if(Net.hosting) await Net.flushSide(dim);
   World.ready=false; unloadAll(false); Entities.list.length=0; Particles.list.length=0;
   World.dim=dim; World.saved = await Storage.listChunks(World.worldId, dim); World.ready=true;
   let tx=Player.x, tz=Player.z;
@@ -4021,7 +4084,7 @@ function waitChunks(x,z,r){ return new Promise(res=>{ const cx=Math.floor(x)>>4,
 // ---------- per-tick game logic (20 TPS) ----------
 function gameTick(){
   World.tick++; World.time=(World.time+1)%24000;
-  if(!World.remote){
+  if(!World.remote || Net.localAuthority){
     runScheduled();
     tickFurnaces();
     randomTicks(Math.floor(Player.x), Math.floor(Player.z));
@@ -4050,7 +4113,7 @@ function gameTick(){
     if(P.y<-64 && World.tick%10===0) P.damage(4,'void');
     // portal
     if(touching(P,B.nether_portal)){ if(!P.portalCd){ P.portalT += 0.05; if(World.tick%40===1) SND.play('portal',P); if(Math.random()<0.5) Particles.burst(P.x,P.y+1,P.z,'portal',1,0.6);
-        if(P.portalT >= (Game.mode==='creative'?0.6:4)){ P.portalT=0; P.portalCd=true; if(World.remote){ UI.showMessage('В сетевой игре в другой мир переходит хост — вы последуете за ним'); } else switchDimension(World.dim===1?0:1,[P.x,P.y,P.z]).then(()=>Net.hostDimChanged()); } } }
+        if(P.portalT >= (Game.mode==='creative'?0.6:4)){ P.portalT=0; P.portalCd=true; switchDimension(World.dim===1?0:1,[P.x,P.y,P.z]); } } }
     else { P.portalT=Math.max(0,P.portalT-0.1); P.portalCd=false; }
   }
   // sky light ambient noise
@@ -4073,32 +4136,37 @@ function updatePlayer(dt, inp){
   P.sneak = inp.sneak && !P.flying;
   if(fwd>0.5 && inp.sprint && !P.sneak && (P.food>6||Game.mode==='creative')) P.sprint=true; if(fwd<=0.1 || P.sneak || (P.hitWallSprint && !P.swimming)) P.sprint=false;
   // swimming (sprint while submerged): horizontal pose, 0.6 tall hitbox, follows look pitch
-  const canSwim = P.inWater && !P.flying && subW>0.6;
+  // swimming like Bedrock: sprint (double-tap forward) while underwater; on touch screens holding forward underwater is enough
+  if(Game.settings.touch && P.inWater && P.eyeInWater && fwd>0.5 && !P.flying){ P.swimHold=(P.swimHold||0)+dt; if(P.swimHold>0.35) P.sprint=true; } else P.swimHold=0;
+  const canSwim = P.inWater && !P.flying && (P.eyeInWater || subW>0.8);
   if(canSwim && P.sprint && fwd>0.5) { if(!P.swimming){ P.swimming=true; P.h=0.6; } }
   else if(P.swimming && (!P.inWater || fwd<=0.1 || !P.sprint)){ const hw=P.w/2; if(!aabbHits(P.x-hw,P.y,P.z-hw,P.x+hw,P.y+1.8,P.z+hw)){ P.swimming=false; P.h=1.8; } else if(!P.inWater){ P.sneak=true; } }
   let speed = P.flying ? (P.sprint?21.6:10.9) : P.sneak ? 1.31 : P.sprint ? 5.61 : 4.32;
   const under = getBlock(Math.floor(P.x),Math.floor(P.y-0.05),Math.floor(P.z));
   if(under===B.soul_sand && !P.flying) speed*=0.4;
-  if(P.swimming) speed = 5.6; else if(P.inWater||inLava){ speed *= inLava?0.35:(P.onGround?0.5:0.55); }
+  if(P.swimming) speed = 4.6; else if(P.inWater||inLava){ speed = inLava ? 1.3 : (P.sprint?2.6:2.1); }
   if(P.eatT>0 || P.bowT>0) speed*=0.3;
   const slip = (BLOCKS[under].slip && P.onGround) ? 0.08 : 1;
   const acc = P.flying ? 8 : P.swimming ? 4 : P.onGround ? 14*slip : ((P.inWater||inLava)?6:2.6);
   if(P.swimming){ const cp=Math.cos(P.pitch); mx*=cp; mz*=cp; }
   P.vx += (mx*speed - P.vx)*Math.min(1,acc*dt); P.vz += (mz*speed - P.vz)*Math.min(1,acc*dt);
   if(P.flying){ const vt = (inp.jump?1:0)-(inp.sneakFly?1:0); P.vy += (vt*8 - P.vy)*Math.min(1,10*dt); if(P.onGround && inp.sneakFly) P.flying=false; }
-  else if(P.swimming){ const ty=Math.sin(P.pitch)*speed*fwd + (inp.jump?2:0) - (inp.sneakFly||inp.sneak?2:0); P.vy += (ty - P.vy)*Math.min(1,4*dt);
-    // don't leap out of the surface while swimming
-    if(subW<0.75 && P.vy>0) P.vy*=0.5;
-    if(Math.random()<dt*3) SND.play('swim',null,{vol:0.3}); if(Math.random()<dt*6) Particles.burst(P.x,P.y+0.3,P.z,'bubble',1,0.3); }
+  else if(P.swimming){
+    // follow the look direction; at the surface keep gliding instead of popping out
+    let ty=Math.sin(P.pitch)*speed*Math.max(0,fwd) + (inp.jump?2.5:0) - (inp.sneakFly||inp.sneak?2.5:0);
+    if(subW<0.85 && ty>0) ty=0;
+    P.vy += (ty - P.vy)*Math.min(1,5*dt);
+    if(Math.random()<dt*2.5) SND.play('swim',null,{vol:0.3}); if(Math.random()<dt*5) Particles.burst(P.x,P.y+0.3,P.z,'bubble',1,0.3); }
   else if(P.inWater || inLava){
-    const sink = inLava ? 1.0 : 1.6; // terminal sinking speed
-    P.vy -= (inLava?5:7)*dt; if(P.vy < -sink && !(inp.sneak||inp.sneakFly)) P.vy += ((-sink) - P.vy)*Math.min(1,6*dt);
-    P.vy *= Math.pow(inLava?0.5:0.65, dt*4);
-    if(inp.jump){ const up = inLava?1.6:2.6; P.vy = Math.min(P.vy + (inLava?12:20)*dt, up); }
-    if(inp.sneak||inp.sneakFly) P.vy = Math.max(P.vy - 10*dt, -3);
-    // bob at the surface, jump out onto ledges
-    const surf = inLava? subL : subW; if(inp.jump && surf<0.6 && !P.onGround && !P.hitH) P.vy = Math.min(P.vy, (surf-0.45)*8); // bob with the head above the surface
-    if(P.hitH && inp.jump) P.vy = Math.max(P.vy, inLava?3.5:5.2);
+    // calm water: slow sinking, Space swims up, at the surface the head stays above water
+    const surf = inLava? subL : subW;
+    const sink = inLava ? 0.8 : 0.9;
+    let ty = -sink;
+    if(inp.jump) ty = inLava ? 1.6 : 2.4;
+    if(inp.sneak||inp.sneakFly) ty = -2.6;
+    if(inp.jump && surf<0.62 && !P.hitH) ty = Math.min(ty, (surf-0.5)*10);   // bob at the surface
+    P.vy += (ty - P.vy)*Math.min(1,(inLava?3:4)*dt);
+    if(P.hitH && (inp.jump || fwd>0.5) && surf<0.9) P.vy = Math.max(P.vy, inLava?3.5:5.5);   // climb out onto the shore
     if(Math.random()<dt*2 && Math.hypot(P.vx,P.vz)>1 && !inLava) SND.play('swim',null,{vol:0.3}); }
   else { P.vy -= 32*dt; P.vy *= Math.pow(0.98, dt*20); if(P.vy<-78) P.vy=-78;
     if(inp.jump && P.onGround){ P.vy = 9.1; P.exh += P.sprint?0.2:0.05; if(P.sprint){ P.vx += -sy*2; P.vz += -cy*2; } } }
@@ -4202,14 +4270,14 @@ function frame(now){
     if(Game.state!=='loading'){
       Cam.x=Player.x; Cam.y=eyeY(); Cam.z=Player.z; Cam.yaw=Player.yaw; Cam.pitch=Player.pitch;
       if(Game.settings.bob && Player.onGround){ Cam.y += -Math.abs(Math.cos(Player.bobT*Math.PI*0.6))*0.05 + 0.025; }
-      Cam.fov = Game.settings.fov * (Player.sprint?1.12:1) * (Player.eyeInWater?0.9:1);
+      { const fovT = Game.settings.fov * (Player.sprint && !Player.swimming ? (Player.flying?1.15:1.12) : 1) * (Player.eyeInWater?0.92:1); Cam.fovS = Cam.fovS===undefined ? fovT : Cam.fovS + (fovT-Cam.fovS)*Math.min(1, dt*6); Cam.fov = Cam.fovS; } // smooth FOV like the real game
       if(Player.portalT>0) Cam.fov *= 1 - Math.min(1,Player.portalT/4)*0.15;
       const st=skyState(); SND.listener.x=Cam.x; SND.listener.y=Cam.y; SND.listener.z=Cam.z; SND.listener.yaw=Cam.yaw;
       DYN.o.reset(); DYN.t.reset(); DYN.h.reset();
       renderEntities(DYN.o, DYN.t, Cam); Particles.render(DYN.t, Cam);
       let outline=null; if(Act.target && Game.state==='playing'){ outline=outlineVerts(Act.target); if(Act.breakT>0 && Act.breakNeed>0.06){ const stg=Math.min(9,Math.floor(Act.breakT/Act.breakNeed*10)); crackQuads(DYN.t, Act.target, stg); } }
       if(!Player.dead) renderHand(DYN.h);
-      Renderer.draw(Cam, st, DYN, DYN.h, outline);
+      if(!(window.DBG && window.DBG.noRender)) Renderer.draw(Cam, st, DYN, DYN.h, outline);
       UI.frame(dt, fps);
     }
   } catch(e){ reportFrameError(e); }
@@ -4301,7 +4369,7 @@ async function startWorld(meta){
   await waitChunks(Player.x, Player.z, 2);
   if(Player.needSurface){ const sy=surfaceY(Math.floor(Player.x),Math.floor(Player.z)); Player.y=sy+1; Player.needSurface=false; if(!meta.spawn || !meta.player){ Player.spawn=[Player.x,Player.y,Player.z]; meta.spawn=Player.spawn; } }
   // make sure not inside blocks
-  let k=0; while(aabbHits(Player.x-0.3,Player.y,Player.z-0.3,Player.x+0.3,Player.y+1.8,Player.z+0.3) && k++<300) Player.y+=1;
+  let k=0; while(isLoaded(Math.floor(Player.x),Math.floor(Player.z)) && aabbHits(Player.x-0.3,Player.y,Player.z-0.3,Player.x+0.3,Player.y+1.8,Player.z+0.3) && k++<300) Player.y+=1;
   meta.lastPlayed=Date.now(); if(!meta.remote) await Storage.saveMeta(meta);
   Game.state='playing'; Game.lastSave=performance.now(); UI.hideLoading(); UI.enterGame(); SND.music(true);
 }
@@ -4548,7 +4616,8 @@ const UI = (function(){
     el.textContent = !Game.settings.realSounds ? 'Сейчас играют синтезированные звуки.'
       : R.dead ? 'Не удалось загрузить звуки с GitHub (нет сети или браузер блокирует внешние файлы) — играет синтезатор.'
       : !R.total ? 'Звуки загрузятся с GitHub (репозиторий Mojang bedrock-samples) при первом нажатии в игре.'
-      : `Звуки с GitHub Mojang: ${R.ok} из ${R.total}`+(R.fail?`, ошибок ${R.fail}`:'')+'. Пока звук не загружен, играет синтезатор.'; }
+      : `Звуки с GitHub Mojang: ${R.ok} из ${R.total}`+(R.fail?`, ошибок ${R.fail}`:'')+'. Пока звук не загружен, играет синтезатор.';
+    if(Game.settings.realSounds){ const M=SND.realMusic; el.textContent += M.dead ? ' Музыку C418 загрузить не удалось — играет синтезированная.' : M.ok ? ' Музыка: оригинальный саундтрек (Minecraft Wiki).' : ' Музыка: оригинальный саундтрек загрузится с Minecraft Wiki.'; } }
   function updTex(){ const el=document.getElementById('texStatus'); if(!el) return; const A=Assets.ST;
     el.textContent = Game.settings.realTextures===false ? 'Сейчас — нарисованные кодом текстуры. Включение подействует после перезагрузки страницы.'
       : A.dead ? 'Не удалось загрузить текстуры/шрифт с GitHub (нет сети или браузер блокирует внешние файлы) — используются встроенные.'
@@ -4667,6 +4736,7 @@ const UI = (function(){
     if(itemNameT>0){ itemNameT-=dt; if(itemNameT<=0) $('#itemName').classList.remove('on'); }
     const S=Game.settings; let t='';
     if(S.showFps||debug) t+=fps+' FPS'+(debug?` · отрисовок ${Renderer.stats.draws} · треуг. ${(Renderer.stats.tris/1000|0)}k`:'')+'\n';
+    if(Net.isClient && Net.pending>2) t+=`Загрузка мира от хоста: ${Net.pending} чанков…\n`;
     if(S.showCoords||debug){ t+=`XYZ: ${P.x.toFixed(1)} / ${P.y.toFixed(1)} / ${P.z.toFixed(1)}\n`; }
     if(debug){ const c=getChunk(Math.floor(P.x)>>4,Math.floor(P.z)>>4); const b=c?c.biomes[((Math.floor(P.z)&15)<<4)|(Math.floor(P.x)&15)]:0; const l=getLight(Math.floor(P.x),Math.floor(P.y+1),Math.floor(P.z));
       t+=`Биом: ${GEN.BIOME_RU[GEN.BIOMES[b]]||GEN.BIOMES[b]}\nЧанков: ${World.chunks.size} · сущностей ${Entities.list.length}\nСвет: небо ${l>>4} блок ${l&15} · время ${World.time}\nИзмерение: ${World.dim===1?'Незер':'Верхний мир'}\n`; if(Act.target) t+=`Блок: ${BLOCKS[Act.target.id].ru} (${Act.target.x}, ${Act.target.y}, ${Act.target.z})\n`; }
@@ -4907,7 +4977,7 @@ const Storage = (function(){
     if(batch.length) await putChunkRecords(meta.id,batch);
     meta.chunkCount=n; await saveMeta(meta); return meta;
   }
-  return { decodeChunk, listWorlds, saveMeta, deleteWorld, listChunks, loadChunk, saveChunk, saveAll, estimate, exportWorld, importOwn, encodeChunk, putChunkRecords, get pending(){ return pending; }, get available(){ return !!db; }, open };
+  return { compress, decompress, decodeChunk, listWorlds, saveMeta, deleteWorld, listChunks, loadChunk, saveChunk, saveAll, estimate, exportWorld, importOwn, encodeChunk, putChunkRecords, get pending(){ return pending; }, get available(){ return !!db; }, open };
 })();
 
 // ===================== IMPORT: Java (Anvil) & Bedrock (LevelDB) worlds =====================
