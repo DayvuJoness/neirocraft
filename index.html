@@ -143,6 +143,13 @@ body:not(.touch) #btnInv{ display:none; }
 .stc.sel{ background:#c6c6c6; border-color:#fff; } .stc i{ width:28px; height:28px; display:block; } .stc .bprev{ width:12px; height:24px; image-rendering:pixelated; display:block; } .stc b{ position:absolute; right:2px; bottom:0; color:#fff; font-size:11px; text-shadow:1px 1px 0 #000; } .sthint{ display:block; font-size:11px; color:#444; margin:4px 0; }
 .farrow{ width:calc(var(--slot)*1.2); height:12px; background:#8b8b8b; position:relative; } .farrow i{ position:absolute; left:0; top:0; bottom:0; width:0; background:#fff; }
 .ctabs{ display:flex; gap:3px; flex-wrap:wrap; }
+.tlist{ display:flex; flex-direction:column; gap:3px; max-height:calc(var(--slot)*4.4); overflow:auto; margin:4px 0; max-width:calc(var(--slot)*9.4); }
+.trow{ display:flex; align-items:center; gap:4px; background:#8b8b8b; border:2px solid #373737; padding:3px 8px; cursor:pointer; font:inherit; color:#fff; text-align:left; }
+.trow:hover{ background:#a2a2a2; } .trow.poor{ opacity:.62; } .trow.out{ background:#7d5a5a; }
+.tic{ position:relative; width:32px; height:32px; display:flex; align-items:center; justify-content:center; flex:none; } .tic i{ width:28px; height:28px; display:block; } .tic b{ position:absolute; right:-3px; bottom:-3px; color:#fff; font-size:12px; text-shadow:1px 1px 0 #000; }
+.tplus{ color:#333; font-size:16px; width:12px; text-align:center; } .tsp{ width:44px; flex:none; } .tarr{ color:#fff; font-size:20px; margin:0 6px; text-shadow:1px 1px 0 #000; }
+.tname{ font-size:12px; color:#f4f4f4; text-shadow:1px 1px 0 #333; margin-left:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.txp{ height:7px; background:#555; border:1px solid #222; width:calc(var(--slot)*5); max-width:100%; margin-bottom:3px; } .txp i{ display:block; height:100%; background:#7ec832; }
 .ctab{ width:calc(var(--slot)*1.05); height:calc(var(--slot)*1.05); background:#a8a8a8; border:2px solid #000; box-shadow: inset 2px 2px 0 #ddd, inset -2px -2px 0 #666; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:18px; padding:0; }
 .ctab i{ width:28px; height:28px; display:block; } .ctab.sel{ background:var(--panel); box-shadow: inset 2px 2px 0 #fff, inset -2px -2px 0 #888; transform:translateY(2px); }
 .cgrid{ max-height:calc(var(--slot)*5); overflow-y:auto; overflow-x:hidden; background:#8b8b8b; padding-right:4px; }
@@ -3201,6 +3208,8 @@ MT('flame', p=>{ for(let y=0;y<S;y++) for(let x=0;x<S;x++){ const d=Math.hypot(x
 MT('bubble', p=>{ for(let y=0;y<S;y++) for(let x=0;x<S;x++){ const d=Math.hypot(x-7.5,y-7.5); if(d<7&&d>5) p.set(x,y,[220,235,255]); } p.set(5,5,[255,255,255]); });
 MT('portal_p', p=>{ for(let y=4;y<12;y++) for(let x=4;x<12;x++){ const e=Math.min(x-4,y-4,11-x,11-y); p.set(x,y, e===0?[170,170,170]:e===1?[225,225,225]:[255,255,255]); } });
 MT('heart_p', p=>{ art(p,['................','................','...RRR...RRR....','..RRRRR.RRRRR...','..RRRRRRRRRRR...','..RRRRRRRRRRR...','...RRRRRRRRR....','....RRRRRRR.....','.....RRRRR......','......RRR.......','.......R........','................','................','................','................','................'],{R:[230,30,40]}); });
+MT('happy_p', p=>{ art(p,['................','.......G........','.......G........','......GLG.......','...GGGLWLGGG....','.....GLWLG......','......GLG.......','.......G........','.......G........','................','................','................','................','................','................','................'],{G:[40,170,40],L:[120,230,90],W:[230,255,200]}); });
+MT('angry_p', p=>{ art(p,['................','................','....DD....DD....','...DGGD..DGGD...','..DGGGGDDGGGGD..','..DGGGGGGGGGGD..','...DGGGGGGGGD...','..DGGGGGGGGGGD..','..DGGGGDDGGGGD..','...DGGD..DGGD...','....DD....DD....','................','................','................','................','................'],{D:[40,40,40],G:[90,90,90]}); });
 MT('xp_p', p=>{ for(let y=0;y<S;y++) for(let x=0;x<S;x++){ const d=Math.hypot(x-7.5,y-7.5); if(d<5) p.set(x,y, d<2.5?[220,255,120]:[120,220,40]); } });
 
 EGGS.forEach(([m,ru,c1,c2])=>IT('spawn_egg_'+m, p=>{ const a=hex(c1), b=hex(c2); for(let y=0;y<S;y++) for(let x=0;x<S;x++){ const dx=(x-7.5)/5.2, dy=(y-8.5)/6.8 + (y<8?0.06*(8-y)/8:0); const d=dx*dx+dy*dy; if(d<1){ let c=a; if(GEN.hash32(x,y,m.length,9)%7===0) c=b; if(d>0.8) c=mul(c,0.7); if(dx<-0.3&&dy<-0.3&&d<0.5) c=mul(c,1.25); p.set(x,y,c); } } }));
@@ -3416,7 +3425,7 @@ const SND = (function(){
     pig_death:FX.pig_hurt, cow_death:FX.cow_hurt, sheep_death:FX.sheep_hurt, chicken_death:FX.chicken_hurt, zombie_death:FX.zombie_hurt, skeleton_death:FX.skeleton_hurt, creeper_hurt:FX.hurt, creeper_death:FX.hurt, spider_death:FX.spider_hurt, piglin_death:FX.piglin_hurt,
     villager:(d,t)=>{ const f=filtered(d,'bandpass',600,3); tone(f,t,0.25,'sawtooth',300,180,0.5); tone(f,t+0.12,0.18,'sawtooth',240,200,0.4); }, villager_hurt:(d,t)=>{ const f=filtered(d,'bandpass',700,3); tone(f,t,0.15,'sawtooth',380,220,0.6); },
     irongolem:(d,t)=>MAT.stone(d,t,0.5), irongolem_hurt:(d,t)=>MAT.stone(d,t,1.2), irongolem_attack:(d,t)=>FX.hurt(d,t), door_close:(d,t)=>MAT.wood(d,t,1.5) });
-  FX.villager_death=FX.villager_hurt; FX.irongolem_death=FX.irongolem_hurt;
+  FX.villager_death=FX.villager_hurt; FX.villager_yes=FX.villager; FX.villager_haggle=FX.villager; FX.villager_no=FX.villager_hurt; FX.irongolem_death=FX.irongolem_hurt;
   Object.assign(FX, { thunder:(d,t)=>{ noise(d,t,2.6,'lowpass',180,0.7,0.9); noise(d,t+0.05,0.5,'lowpass',900,0.7,0.5); }, rain:(d,t)=>noise(d,t,1.8,'highpass',2500,0.5,0.12),
     drowned:FX.zombie, drowned_hurt:FX.zombie_hurt, drowned_death:FX.zombie_hurt, drowned_convert:FX.zombie_hurt, zombie_unfect:FX.zombie,
     fish:(d,t)=>noise(d,t,0.15,'bandpass',1400,3,0.1), fish_hurt:(d,t)=>noise(d,t,0.12,'bandpass',900,3,0.3), fish_death:(d,t)=>noise(d,t,0.12,'bandpass',900,3,0.3), fish_flop:(d,t)=>noise(d,t,0.08,'lowpass',600,1,0.4),
@@ -3456,7 +3465,7 @@ const SND = (function(){
     hit:R('mob/player/attack/weak',4,{vol:0.8}), strong_hit:R('mob/player/attack/strong',6,{vol:0.8}), click:R('random/click',0,{vol:0.35}),
     chest_open:R('random/chestopen',0,{vol:0.7}), chest_close:R('random/chestclosed',0,{vol:0.7}), fuse:R('random/fuse'), orb:R('random/orb',0,{vol:0.6}), levelup:R('random/levelup',0,{vol:0.8}),
     cave:R('cave/cave',8,{vol:0.7,pitch:[0.95,1.05]}), door:R('random/door_open'), drown:R('mob/player/hurt/drown',4), arrow_hit:R('random/bowhit',4), furnace:R('block/furnace/fire_crackle',5,{vol:0.6}),
-    villager:R('mob/villager/idle',3), villager_hurt:R('mob/villager/hit',4), villager_death:R('mob/villager/death'),
+    villager:R('mob/villager/idle',3), villager_hurt:R('mob/villager/hit',4), villager_death:R('mob/villager/death'), villager_yes:R('mob/villager/yes',3), villager_no:R('mob/villager/no',3), villager_haggle:R('mob/villager/haggle',3),
     irongolem:R('mob/irongolem/walk',4,{vol:0.6}), irongolem_hurt:R('mob/irongolem/hit',4), irongolem_death:R('mob/irongolem/death'), irongolem_attack:R('mob/irongolem/throw'),
     door_close:R('random/door_close'),
     enderman:R('mob/endermen/idle',4), enderman_hurt:R('mob/endermen/hit',4), enderman_death:R('mob/endermen/death'), enderman_scream:R('mob/endermen/scream',4), enderman_portal:R('mob/endermen/portal'),
@@ -5670,8 +5679,8 @@ const Particles = { list:[],
   portal(x,y,z,n,spread){ const L=TEX.itemIndex['portal_p']; if(L===undefined) return; const s=spread||0.5;
     for(let i=0;i<n;i++){ const f=Math.random()*0.6+0.4; const col=Mesher.packColor((((f*0.9*255)|0)<<16)|(((f*0.3*255)|0)<<8)|((f*255)|0));
       this.add({x:x+(Math.random()-0.5)*s*2,y:y+(Math.random()-0.5)*1.6,z:z+(Math.random()-0.5)*s*2,vx:(Math.random()-0.5)*1.4,vy:(Math.random()-0.2)*1.2,vz:(Math.random()-0.5)*1.4,life:0.7+Math.random()*0.7,max:1.4,size:0.1+Math.random()*0.12,layer:L,arr:1,g:-0.15,u0:0,v0:0,u1:1,v1:1,bright:true,col,tm:1}); } },
-  burst(x,y,z,type,n,spread){ if(type==='portal') return this.portal(x,y,z,n,spread); const L=TEX.itemIndex[type==='smoke'?'smoke':type==='flame'?'flame':type==='portal'?'portal_p':type==='bubble'?'bubble':type==='heart'?'heart_p':'smoke'];
-    for(let i=0;i<n;i++){ const s=spread||0.3; this.add({x:x+(Math.random()-0.5)*s*2,y:y+(Math.random()-0.5)*s*2,z:z+(Math.random()-0.5)*s*2,vx:(Math.random()-0.5)*1.2,vy:Math.random()*1.5+(type==='smoke'?0.5:0),vz:(Math.random()-0.5)*1.2,life:0.6+Math.random()*0.8,max:1.4,size:0.12+Math.random()*0.1,layer:L,arr:1,g:type==='smoke'?-0.5:type==='portal'?-0.2:2, u0:0,v0:0,u1:1,v1:1, bright:type==='flame'||type==='portal'}); } },
+  burst(x,y,z,type,n,spread){ if(type==='portal') return this.portal(x,y,z,n,spread); const L=TEX.itemIndex[type==='smoke'?'smoke':type==='flame'?'flame':type==='portal'?'portal_p':type==='bubble'?'bubble':type==='heart'?'heart_p':type==='happy'?'happy_p':type==='angry'?'angry_p':'smoke'];
+    for(let i=0;i<n;i++){ const s=spread||0.3; this.add({x:x+(Math.random()-0.5)*s*2,y:y+(Math.random()-0.5)*s*2,z:z+(Math.random()-0.5)*s*2,vx:(Math.random()-0.5)*1.2,vy:Math.random()*1.5+(type==='smoke'?0.5:0),vz:(Math.random()-0.5)*1.2,life:0.6+Math.random()*0.8,max:1.4,size:0.12+Math.random()*0.1,layer:L,arr:1,g:type==='smoke'?-0.5:type==='portal'?-0.2:(type==='happy'||type==='angry')?1.2:2, u0:0,v0:0,u1:1,v1:1, bright:type==='flame'||type==='portal'}); } },
   block(x,y,z,id,n){ const layer=TEX.faceTile[id][4]; const d=BLOCKS[id]; let col=COL_W, tm=0; const ts=Mesher; if(d.tint){ const t=(typeof d.tint==='object')?d.tint.side:d.tint; const h = t==='grass'?0x91bd59:t==='foliage'?0x77ab2f:t==='water'?0x3f76e4:t; if(typeof h==='number'){ col=Mesher.packColor(h); tm=1; } }
     for(let i=0;i<(n||16);i++){ const u0=Math.random()*0.75, v0=Math.random()*0.75; this.add({x:x+Math.random(),y:y+Math.random(),z:z+Math.random(),vx:(Math.random()-0.5)*3,vy:Math.random()*3,vz:(Math.random()-0.5)*3,life:0.4+Math.random()*0.6,max:1,size:0.1,layer,arr:0,g:18,u0,v0,u1:u0+0.25,v1:v0+0.25,col,tm}); } },
   // cherry leaves let petals go now and then: they flutter down slowly, settle on the ground and fade
@@ -6159,7 +6168,7 @@ const MOB = {
   cow:{hp:10, speed:1.0, passive:true, drops:[['beef',1,3],['leather',0,2]], snd:'cow'},
   sheep:{hp:8, speed:1.1, passive:true, drops:[['white_wool',1,1],['mutton',1,2]], snd:'sheep', grazer:true},
   chicken:{hp:4, speed:1.1, passive:true, drops:[['chicken',1,1],['feather',0,2]], snd:'chicken'},
-  villager:{hp:20, speed:1.0, passive:true, villager:true, drops:[], snd:'villager'},
+  villager:{hp:20, speed:2.4, passive:true, villager:true, drops:[], snd:'villager'},
   iron_golem:{hp:100, speed:1.0, golem:true, dmg:10, drops:[['iron_ingot',3,5]], snd:'irongolem', kbRes:true},
   zombie:{hp:20, speed:1.6, hostile:true, dmg:3, drops:[['rotten_flesh',0,2]], snd:'zombie', burns:true},
   skeleton:{hp:20, speed:1.5, hostile:true, ranged:true, drops:[['bone',0,2],['arrow',0,2]], snd:'skeleton', burns:true},
@@ -6281,7 +6290,18 @@ function attackTarget(e, t, dmg, kbk){ const dx=t.x-e.x, dz=t.z-e.z, d=Math.hypo
   else if(t.mob){ hurtEntity(t, dmg, e.type, [dx*k*0.6,0,dz*k*0.6], e); } }
 function nearestMob(e, R, pred){ let best=null, bd=R*R; for(const o of Entities.list){ if(!o.mob||o===e||o.dead||!pred(o)) continue; const d=(o.x-e.x)**2+(o.y-e.y)**2+(o.z-e.z)**2; if(d<bd){ bd=d; best=o; } } return best; }
 function tryOpenDoor(e, tx, tz){ const x=Math.floor(e.x+tx*0.7), z=Math.floor(e.z+tz*0.7), y=Math.floor(e.y);
-  for(const yy of [y,y+1]){ const id=getBlock(x,yy,z); if(BLOCKS[id] && BLOCKS[id].door){ const m=getMeta(x,yy,z); if(m&4) return false; const lower = (m&8)? yy-1 : yy; for(const q of [lower,lower+1]) if(BLOCKS[getBlock(x,q,z)].door) setBlock(x,q,z,getBlock(x,q,z),getMeta(x,q,z)|4,{noUpdate:true}); SND.play('door',{x,y:yy,z}); e.door={x,y:lower,z,t:2.5}; return true; } } return false; }
+  for(const yy of [y,y+1]){ const id=getBlock(x,yy,z); if(BLOCKS[id] && BLOCKS[id].door) return openDoorFor(e,x,yy,z); } return false; }
+// a mob opens a door (remembers it and closes it behind itself once nobody stands in the doorway)
+function openDoorFor(e,x,y,z){ const m=getMeta(x,y,z); const lower=(m&8)?y-1:y; const mine=e.door && e.door.x===x && e.door.y===lower && e.door.z===z;
+  if(m&4){ if(mine) e.door.t=Math.max(e.door.t,1.5); return false; }
+  if(e.door && !mine) closeMobDoor(e,true);
+  for(const q of [lower,lower+1]) if(BLOCKS[getBlock(x,q,z)].door) setBlock(x,q,z,getBlock(x,q,z),getMeta(x,q,z)|4,{noUpdate:true});
+  SND.play('door',{x,y,z}); e.door={x,y:lower,z,t:2.5}; return true; }
+function closeMobDoor(e,force){ const d=e.door; if(!d) return; const cx=d.x+0.5, cz=d.z+0.5;
+  const inWay=o=>Math.abs(o.x-cx)<0.5+(o.w||0.6)/2 && Math.abs(o.z-cz)<0.5+(o.w||0.6)/2 && o.y<d.y+2 && o.y+(o.h||1.8)>d.y;
+  if(!force){ let busy=inWay(Player); if(!busy) for(const o of Entities.list) if(o.mob && !o.dead && inWay(o)){ busy=true; break; } if(busy){ d.t=0.6; return; } }
+  e.door=null; if(!BLOCKS[getBlock(d.x,d.y,d.z)].door || !(getMeta(d.x,d.y,d.z)&4)) return;
+  for(const q of [d.y,d.y+1]) if(BLOCKS[getBlock(d.x,q,d.z)].door) setBlock(d.x,q,d.z,getBlock(d.x,q,d.z),getMeta(d.x,q,d.z)&~4,{noUpdate:true}); SND.play('door_close',{x:d.x,y:d.y,z:d.z}); }
 // fish: swim around inside water, flop and suffocate on land
 function fishAI(e, dt){ const ai=e.ai, def=MOB[e.type];
   if(!e.inW){ e.flop=true; e.air=(e.air??300)-dt*20; if(e.onGround && Math.random()<dt*2.5){ e.vy=5; e.vx=(Math.random()-0.5)*3; e.vz=(Math.random()-0.5)*3; e.yaw+=(Math.random()-0.5)*2; SND.play('fish_flop',e,{vol:0.6}); } if(e.air<=0){ e.air=20; e.hurtCd=0; hurtEntity(e,1,'drown'); } return; }
@@ -6355,11 +6375,14 @@ function mobAI(e, dt){
     if(e.converting>0){ e.converting-=dt; if(e.converting<=0){ e.type='drowned'; e.hp=MOB.drowned.hp; e.converting=0; e.drownT=0; SND.play('drowned_convert',e); return; } }
     else if(headIn){ e.drownT=(e.drownT||0)+dt; if(e.drownT>30){ e.converting=15; SND.play('zombie_unfect',e); } } else e.drownT=0; }
   let tx=0, tz=0, speed=0, want=false, lookAt=null;
-  let routine=null; if(def.villager) routine=villagerRoutine(e,dt,def); // bedtime / zombie refuge
+  if(e.tradeLock && !(Game.state==='inventory' && UI.tradeMob && UI.tradeMob()===e)) e.tradeLock=false;
+  if(def.villager) villagerTick(e,dt);
+  e.atWork=false; let routine=null; if(def.villager && !e.tradeLock) routine=villagerRoutine(e,dt,def); // bedtime / zombie refuge
+  e.busy=!!routine; let vlook=null, pathing=false;
   const day = Game.daylight>0.6;
   if(e.angry>0) e.angry-=dt; if(e.attackAnim>0) e.attackAnim-=dt*2.5;
   if(e.type==='enderman') endermanTick(e,dt); if(e.dead) return;
-  if(e.door){ e.door.t-=dt; if(e.door.t<=0){ const d=e.door; for(const q of [d.y,d.y+1]) if(BLOCKS[getBlock(d.x,q,d.z)].door) setBlock(d.x,q,d.z,getBlock(d.x,q,d.z),getMeta(d.x,q,d.z)&~4,{noUpdate:true}); SND.play('door_close',{x:d.x,y:d.y,z:d.z}); e.door=null; } }
+  if(e.door){ e.door.t-=dt; if(e.door.t<=0) closeMobDoor(e); }
   // ---- choose target: re-evaluated ~4x/s, and mobs only notice what they can actually see ----
   let target=null;
   const canHostile = Game.difficulty!=='peaceful';
@@ -6415,9 +6438,11 @@ function mobAI(e, dt){
     ai.t-=dt;
     // villagers without a refuge flee from zombies
     if(def.villager && !routine){ const z=nearestMob(e,8,o=>o.type==='zombie'); if(z){ ai.panic=Math.max(ai.panic||0,1); ai.dir=Math.atan2(-(e.x-z.x),-(e.z-z.z)); ai.t=1; } }
-    if(routine){ tx=routine.tx; tz=routine.tz; speed=routine.speed; want=routine.want; }
+    if(routine){ tx=routine.tx; tz=routine.tz; speed=routine.speed; want=routine.want; pathing=!!e.path; if(e.atWork) vlook=villagerWork(e,dt); }
+    else if(e.tradeLock){ want=false; vlook=Player; e.tyaw=Math.atan2(-(Player.x-e.x),-(Player.z-e.z)); }
     else if(ai.panic>0){ ai.panic-=dt; if(ai.t<=0){ ai.dir=Math.random()*6.28; ai.t=0.8+Math.random(); } tx=-Math.sin(ai.dir); tz=-Math.cos(ai.dir); speed=def.speed*(def.villager?1.6:1.8); want=true; }
     else if(e.graze>0){ e.graze-=dt; if(e.graze<=0 && e.type==='sheep'){ const bx=Math.floor(e.x), by=Math.floor(e.y), bz=Math.floor(e.z); const at=getBlock(bx,by,bz); if(at===B.tall_grass || at===B.fern){ setBlock(bx,by,bz,0); } else if(getBlock(bx,by-1,bz)===B.grass && Math.random()<0.4){ setBlock(bx,by-1,bz,B.dirt); } Particles.block(bx,by-0.5,bz,B.grass,6); } }
+    else if(def.villager){ const vr=villagerLife(e,dt,def); tx=vr.tx; tz=vr.tz; speed=vr.speed; want=vr.want; pathing=!!vr.path; if(vr.look) vlook=vr.look; if(vr.yaw!==undefined) e.tyaw=vr.yaw; }
     else {
       if(ai.t<=0){ ai.moving=Math.random()<(def.villager?0.6:0.5); ai.dir=Math.random()*6.28; ai.t=2+Math.random()*5;
         const home=e.home; if(home && Math.hypot(home[0]-e.x,home[2]-e.z) > (def.golem?14:(day?18:6))){ ai.moving=true; ai.dir=Math.atan2(-(home[0]-e.x),-(home[2]-e.z)); ai.t=3; }
@@ -6429,6 +6454,7 @@ function mobAI(e, dt){
     }
     // look at nearby players, villagers look at each other
     let bd=8*8; for(const t of [Player].concat(typeof Net!=='undefined'?Net.peerList().filter(p=>p.dim===World.dim):[])){ const d=(t.x-e.x)**2+(t.z-e.z)**2; if(d<bd && !t.dead){ bd=d; lookAt=t; } }
+    if(vlook && !(lookAt && lookAt!==vlook && bd<6)) lookAt=vlook;
     if(!lookAt && def.villager && Math.random()<0.01) e._buddy=nearestMob(e,5,o=>o.type==='villager'); if(!lookAt && e._buddy && !e._buddy.dead) lookAt=e._buddy;
     // follow player holding wheat/seeds
     if(def.passive && !def.villager && bd<64 && bd>4 && (Player.held()===idOf('wheat') || (e.type==='chicken' && Player.held()===idOf('wheat_seeds')))){ tx=Player.x-e.x; tz=Player.z-e.z; speed=def.speed; want=true; ai.moving=false; }
@@ -6450,7 +6476,7 @@ function mobAI(e, dt){
     const ax=Math.floor(e.x+tx*0.8), az=Math.floor(e.z+tz*0.8), ay=Math.floor(e.y);
     let drop=0; while(drop<5 && !SOLID[getBlock(ax,ay-1-drop,az)] && !LIQ[getBlock(ax,ay-1-drop,az)]) drop++;
     const ahead=getBlock(ax,ay-1,az), at=getBlock(ax,ay,az);
-    const scared = !target && !ai.panic && !routine;
+    const scared = !target && !ai.panic && !routine && !pathing;
     if(!def.fly && ((drop>=3 && scared) || ahead===B.lava || at===B.lava || at===B.fire || (scared && LIQ[ahead] && !e.inW && !def.golem))){ ai.t=0; ai.dir+=Math.PI; want=false; tx=0; tz=0; }
     if(want && (!target || e.steerT>0)) e.tyaw = Math.atan2(-tx,-tz);
   }
@@ -6461,7 +6487,8 @@ function mobAI(e, dt){
   if(lookAt){ const dx=lookAt.x-e.x, dz=lookAt.z-e.z; hy=angDiff(Math.atan2(-dx,-dz), e.yaw); const eyeY=(lookAt.y+(lookAt.mob?lookAt.h*0.85:1.6)) - (e.y+e.h*0.85); hp=Math.atan2(eyeY, Math.hypot(dx,dz)); }
   else if(e.lookT>0){ e.lookT-=dt; hy=e.lookYaw; hp=e.lookPitch; }
   hy=Math.max(-1.2,Math.min(1.2,hy)); hp=Math.max(-0.8,Math.min(0.8,hp));
-  e.headYaw += (hy-e.headYaw)*Math.min(1,dt*6); e.headPitch += (hp-e.headPitch)*Math.min(1,dt*6);
+  let hk=dt*6; if(e.nodT>0){ e.nodT-=dt; hp+=Math.sin(e.nodT*18)*0.32; hk=dt*20; } if(e.shakeT>0){ e.shakeT-=dt; hy+=Math.sin(e.shakeT*24)*0.45; hk=dt*20; }
+  e.headYaw += (hy-e.headYaw)*Math.min(1,hk); e.headPitch += (hp-e.headPitch)*Math.min(1,hk);
   // movement
   const fwd = want && Math.abs(angDiff(Math.atan2(-tx,-tz), e.yaw))<1.2 ? 1 : (want?0.3:0);
   const acc = e.onGround ? 14 : (e.inW?6:3);
@@ -6595,11 +6622,12 @@ function villagerRoutine(e,dt,def){
   let R=e.route, guest=false; const bedtime=isBedtime();
   const z=nearestMob(e,14,o=>o.type==='zombie'); if(z) e.refuge=8; else if(e.refuge>0) e.refuge-=dt;
   const threat=e.refuge>0;
-  if(R && e.bed){ e.bedChk=(e.bedChk||0)-dt; if(e.bedChk<=0){ e.bedChk=2; const b=e.bed; if(isLoaded(b[0],b[2]) && getBlock(b[0],b[1],b[2])!==B.bed){ e.bed=null; e.route=null; R=null; }
-      const w=e.ws; if(w && isLoaded(w[0],w[2]) && !WORKSTATION_IDS.has(getBlock(w[0],w[1],w[2]))){ e.ws=null; e.work=null; } } } else R=null;
+  if(R && (e.bed||e.ws)){ e.bedChk=(e.bedChk||0)-dt; if(e.bedChk<=0){ e.bedChk=2; const b=e.bed; if(b && isLoaded(b[0],b[2]) && getBlock(b[0],b[1],b[2])!==B.bed){ e.bed=null; if(!e.ws){ e.route=null; R=null; } }
+      const w=e.ws; if(w && isLoaded(w[0],w[2]) && !WORKSTATION_IDS.has(getBlock(w[0],w[1],w[2]))){ e.ws=null; e.work=null; e.workRoute=null; if(!e.bed){ e.route=null; R=null; } } } } else R=null;
   // work hours: walk the same way into the house, but to the job-site block instead of the bed
   const working = !!(R && e.work && !bedtime && !threat && isWorkTime());
   if(working){ if(!e.workRoute) e.workRoute=[R[0],R[1],R[2],e.work]; R=e.workRoute; }
+  else if(R && !e.bed) R=null; // no bed of its own: nowhere to go at night
   if(!R){ if(!threat) return null; // homeless villagers hide in the nearest house under attack
     let best=null, bd=40*40; for(const o of Entities.list){ if(o===e||o.dead||o.type!=='villager'||!o.route||!o.bed) continue; const d=(o.route[0][0]-e.x)**2+(o.route[0][2]-e.z)**2; if(d<bd){ bd=d; best=o; } }
     if(!best) return null; R=best.route; guest=true; }
@@ -6609,23 +6637,13 @@ function villagerRoutine(e,dt,def){
   const bedP=R[3]; const eyeBed=bedP[1]+1.2;
   // arrived?
   { const gd=Math.hypot(bedP[0]-e.x,bedP[2]-e.z); if(gd<(working?0.7:1.6) && Math.abs(bedP[1]-e.y)<2.6){ e.path=null;
-      if(working && e.ws){ e.tyaw=Math.atan2(-(e.ws[0]+0.5-e.x),-(e.ws[2]+0.5-e.z)); }
+      if(working && e.ws){ e.tyaw=Math.atan2(-(e.ws[0]+0.5-e.x),-(e.ws[2]+0.5-e.z)); e.atWork=true; }
       if(!guest && bedtime && !threat && startSleep(e)) return {tx:0,tz:0,speed:0,want:false};
       return {tx:0,tz:0,speed:0,want:false}; } }
   // a real path (A* over the block grid, doors are passable); the hand-made door route is only the fallback
   e.pathT=(e.pathT||0)-dt;
-  if(e.pathGoal!==bedP || e.pathT<=0){ e.pathT=2.5+Math.random(); e.pathGoal=bedP; e.path=findPath(e, bedP[0], bedP[1], bedP[2], working?0.6:1.4); e.pathI=0; }
-  if(e.path){ const P=e.path; while(e.pathI<P.length-1){ const n=P[e.pathI]; if(Math.hypot(n[0]+0.5-e.x,n[2]+0.5-e.z)<0.45 && Math.abs(n[1]-e.y)<(CLIMB[getBlock(n[0],n[1],n[2])]?0.45:1.2)) e.pathI++; else break; }
-    const n=P[e.pathI]; const last=e.pathI===P.length-1; const tx=(last?bedP[0]:n[0]+0.5)-e.x, tz=(last?bedP[2]:n[2]+0.5)-e.z;
-    e.climbUp = n[1]>e.y+0.5;
-    // on a ladder: stay in the shaft until the feet are level with the floor the next node stands on, then step off
-    const fx=Math.floor(e.x), fz=Math.floor(e.z);
-    e.ladderLock = (CLIMB[getBlock(n[0],n[1],n[2])] || (Math.abs(n[1]-Math.floor(e.y+0.05))>=1 && CLIMB[getBlock(n[0],Math.min(n[1],Math.floor(e.y+0.05)),n[2])])) ? [n[0]+0.5,n[2]+0.5] : null;
-    if(onClimbable(e) && n[1]>e.y-0.3 && (n[0]!==fx || n[2]!==fz)){ if(e.y<n[1]-0.6){ e.climbUp=true; e.ladderLock=[fx+0.5,fz+0.5]; return {tx:fx+0.5-e.x, tz:fz+0.5-e.z, speed:def.speed*0.6, want:true}; }
-      e.climbUp = n[1]>e.y-0.02; return {tx:n[0]+0.5-e.x, tz:n[2]+0.5-e.z, speed:def.speed, want:true}; }
-    if(onClimbable(e) && n[1]>e.y-0.3) e.climbUp=true;
-    if(Math.hypot(tx,tz)<0.05) return {tx:0,tz:0,speed:0,want:false};
-    return {tx,tz,speed:def.speed*(threat?1.6:0.9),want:true}; }
+  if(e.pathGoal!==bedP || e.pathT<=0){ e.pathT=2.5+Math.random(); e.pathGoal=bedP; e.path=findPath(e, bedP[0], bedP[1], bedP[2], working?0.6:1.4); e.pathI=0; e.walkS=null; }
+  if(e.path) return followPath(e, bedP[0], bedP[2], def.speed*(threat?1.6:0.9), def);
   if(e.rstage===undefined){ const d0=Math.hypot(R[0][0]-e.x,R[0][2]-e.z); const dB0=Math.hypot(bedP[0]-e.x,bedP[2]-e.z);
     if(dB0<12 && rayClear(e.x,e.y+1.2,e.z,bedP[0],eyeBed,bedP[2],true)) e.rstage=3; else if(d0>45){ e.noRoute=20; return null; } else e.rstage=0; e.stkN=0; }
   e.rsT=(e.rsT||0)-dt; if(e.rsT<=0){ e.rsT=0.5; if(e.rstage<3 && Math.hypot(bedP[0]-e.x,bedP[2]-e.z)<10 && rayClear(e.x,e.y+1.2,e.z,bedP[0],eyeBed,bedP[2],true)) e.rstage=3; }
@@ -6635,11 +6653,146 @@ function villagerRoutine(e,dt,def){
   e.stkT=(e.stkT||0)+dt; if(e.stkT>=1){ e.stkT=0; const mv=Math.hypot(e.x-(e.stkX===undefined?e.x:e.stkX), e.z-(e.stkZ===undefined?e.z:e.stkZ)); e.stkX=e.x; e.stkZ=e.z;
     if(mv<0.25 && dd>1.2){ e.stkN=(e.stkN||0)+1; if(e.stkN===4 && e.rstage<3) e.rstage++; if(e.stkN>=9){ e.stkN=0; e.noRoute=25; return null; } } else e.stkN=0; }
   if(e.rstage===3 && dd<(working?0.7:1.6) && Math.abs(bedP[1]-e.y)<2.6){
-    if(working && e.ws){ e.tyaw=Math.atan2(-(e.ws[0]+0.5-e.x),-(e.ws[2]+0.5-e.z)); e.workLook=e.ws; }
+    if(working && e.ws){ e.tyaw=Math.atan2(-(e.ws[0]+0.5-e.x),-(e.ws[2]+0.5-e.z)); e.workLook=e.ws; e.atWork=true; }
     if(!guest && bedtime && !threat && startSleep(e)) return {tx:0,tz:0,speed:0,want:false};
     return {tx:0,tz:0,speed:0,want:false}; }
   return {tx:dx,tz:dz,speed:def.speed*(threat?1.6:0.9),want:true};
 }
+// ---------- villager life: walking with real paths, going in and out of houses, gossip, breeding, babies, work ----------
+const VL={ chat:[5,9], breedCD:300, growT:1200, foodNeed:8, foods:null, leaf:null };
+function safeId(n){ try { return idOf(n); } catch(e){ return null; } }
+function vFoods(){ if(!VL.foods){ VL.foods={}; for(const [n,v] of [['bread',4],['carrot',1],['potato',1],['beetroot',1],['baked_potato',1]]){ const id=safeId(n); if(id!==null) VL.foods[id]=v; } } return VL.foods; }
+function vLeaf(id){ if(!VL.leaf){ VL.leaf=new Set(); BLOCKS.forEach((b,i)=>{ if(b && b.name && /leaves|vine|lantern|torch|sign|banner|chain/.test(b.name)) VL.leaf.add(i); }); } return VL.leaf.has(id); }
+// open sky over a cell (a roof made of solid blocks within 6 blocks means "indoors"; tree leaves don't count)
+function vSkyOpen(x,y,z){ for(let k=0;k<6;k++){ const id=getBlock(x,y+k,z); if(id && SOLID[id] && !vLeaf(id)) return false; } return true; }
+// a random spot a villager can stand on near (cx,cz)
+function vSpot(cx,cy,cz,rad,outdoor){ for(let k=0;k<12;k++){ const x=Math.floor(cx+(Math.random()*2-1)*rad), z=Math.floor(cz+(Math.random()*2-1)*rad); if(!isLoaded(x,z)) continue;
+    for(let y=Math.floor(cy)+3;y>=Math.floor(cy)-8;y--){ if(y<2) break; if(pathStand(x,y,z)){ const below=getBlock(x,y-1,z); if(LIQ[below] || LIQ[getBlock(x,y,z)] || below===B.farmland) break; if(outdoor && !vSkyOpen(x,y+2,z)) break; return [x+0.5,y,z+0.5]; } } }
+  return null; }
+// where the villagers of this settlement meet (the village square); in cities: the own street
+function vCenter(e){ if(e.vc) return e.vc; const h=e.home||[e.x,e.y,e.z]; let c=[h[0],h[1],h[2],14];
+  try { const L=GEN.settlementsNear(World.seed,Math.floor(h[0]),Math.floor(h[2]),220,World.genOpts); let bd=1e9;
+    for(const s of L){ const d=Math.hypot(s.x-h[0],s.z-h[2]); if(!s.city && d<(s.R||60)+16 && d<bd){ bd=d; c=[s.x+0.5,h[1],s.z+0.5,7]; } } } catch(err){}
+  return (e.vc=c); }
+function vEndSocial(e,t){ const L=e.vl; if(!L) return; L.partner=null; L.lead=false; L.mode='idle'; L.goal=null; L.run=false; L.t=t===undefined?1+Math.random()*2:t; }
+// follows e.path towards (gx,gz); opens doors on the way, handles ladders
+function doorsAhead(e){ const P=e.path; if(!P) return; for(let k=e.pathI;k<Math.min(P.length,e.pathI+2);k++){ const n=P[k]; if(Math.hypot(n[0]+0.5-e.x,n[2]+0.5-e.z)>1.7) break;
+    for(const yy of [n[1],n[1]+1]){ const id=getBlock(n[0],yy,n[2]); if(BLOCKS[id] && BLOCKS[id].door){ openDoorFor(e,n[0],yy,n[2]); break; } } } }
+function followPath(e,gx,gz,spd,def){ const P=e.path;
+  while(e.pathI<P.length-1){ const n=P[e.pathI]; if(Math.hypot(n[0]+0.5-e.x,n[2]+0.5-e.z)<0.45 && Math.abs(n[1]-e.y)<(CLIMB[getBlock(n[0],n[1],n[2])]?0.45:1.2)) e.pathI++; else break; }
+  const n=P[e.pathI]; const last=e.pathI===P.length-1; const tx=(last?gx:n[0]+0.5)-e.x, tz=(last?gz:n[2]+0.5)-e.z;
+  doorsAhead(e);
+  e.climbUp = n[1]>e.y+0.5;
+  // on a ladder: stay in the shaft until the feet are level with the floor the next node stands on, then step off
+  const fx=Math.floor(e.x), fz=Math.floor(e.z);
+  e.ladderLock = (CLIMB[getBlock(n[0],n[1],n[2])] || (Math.abs(n[1]-Math.floor(e.y+0.05))>=1 && CLIMB[getBlock(n[0],Math.min(n[1],Math.floor(e.y+0.05)),n[2])])) ? [n[0]+0.5,n[2]+0.5] : null;
+  if(onClimbable(e) && n[1]>e.y-0.3 && (n[0]!==fx || n[2]!==fz)){ if(e.y<n[1]-0.6){ e.climbUp=true; e.ladderLock=[fx+0.5,fz+0.5]; return {tx:fx+0.5-e.x, tz:fz+0.5-e.z, speed:def.speed*0.6, want:true, path:true}; }
+    e.climbUp = n[1]>e.y-0.02; return {tx:n[0]+0.5-e.x, tz:n[2]+0.5-e.z, speed:spd, want:true, path:true}; }
+  if(onClimbable(e) && n[1]>e.y-0.3) e.climbUp=true;
+  if(Math.hypot(tx,tz)<0.05) return {tx:0,tz:0,speed:0,want:false};
+  return {tx,tz,speed:spd,want:true,path:true}; }
+// walk to goal [x,y,z] along an A* path (re-planned every ~2 s); returns a steering object, 'arrived' or 'fail'
+function walkTo(e,goal,reach,spd,dt,def){ let W=e.walkS; if(!W || W.goal!==goal){ W=e.walkS={goal, t:0, sx:e.x, sz:e.z, st:0, sn:0, fails:0}; e.path=null; }
+  if(Math.hypot(goal[0]-e.x,goal[2]-e.z)<reach && Math.abs(goal[1]-e.y)<1.6){ e.path=null; e.ladderLock=null; e.climbUp=false; return 'arrived'; }
+  W.t-=dt; if(W.t<=0){ W.t=1.8+Math.random()*0.8; e.pathGoal=null; e.path=findPath(e,goal[0],goal[1],goal[2],Math.max(0.5,reach-0.3),1200); e.pathI=0; if(!e.path){ if(++W.fails>=2) return 'fail'; } else W.fails=0; }
+  W.st+=dt; if(W.st>=1.5){ const mv=Math.hypot(e.x-W.sx,e.z-W.sz); W.sx=e.x; W.sz=e.z; W.st=0; if(mv<0.3){ W.t=0; if(++W.sn>=4) return 'fail'; } else W.sn=0; }
+  if(!e.path){ const dx=goal[0]-e.x, dz=goal[2]-e.z; return Math.hypot(dx,dz)<4 ? {tx:dx,tz:dz,speed:spd,want:true} : {tx:0,tz:0,speed:0,want:false}; }
+  return followPath(e,goal[0],goal[2],spd,def); }
+function vRoom(e){ const x0=Math.floor(e.x), y0=Math.floor(e.y), z0=Math.floor(e.z); let beds=0;
+  for(let x=x0-24;x<=x0+24;x++) for(let z=z0-24;z<=z0+24;z++){ if(!isLoaded(x,z)) continue; for(let y=y0-6;y<=y0+8;y++) if(getBlock(x,y,z)===B.bed && (getMeta(x,y,z)&4)) beds++; }
+  let pop=0; for(const o of Entities.list) if(o.type==='villager' && !o.dead && Math.hypot(o.x-e.x,o.z-e.z)<32) pop++;
+  return beds>pop; }
+function vShareFood(a,b){ for(const [x,y] of [[a,b],[b,a]]) if((x.food||0)>=VL.foodNeed+4 && (y.food||0)<VL.foodNeed && !y.baby){ x.food-=4; y.food=(y.food||0)+4; Particles.burst(y.x,y.y+y.h+0.2,y.z,'happy',2,0.3); } }
+function vMakeBaby(a,b){ const x=(a.x+b.x)/2, z=(a.z+b.z)/2, y=Math.max(a.y,b.y);
+  spawnMob('villager',x,y,z,{baby:true, bred:true, growT:VL.growT, scale:0.5, w:0.3, h:0.98, style:a.style, prof:Math.random()*GEN.PROFS.length|0, home:a.home?a.home.slice():[x,y,z], food:0});
+  for(const v of [a,b]){ v.food=Math.max(0,(v.food||0)-VL.foodNeed); v.breedCD=VL.breedCD; }
+  Particles.burst(x,y+0.6,z,'heart',6,0.5); SND.play('villager_yes',a); }
+// per-frame bookkeeping: growing up, breeding cooldown, finding a free bed and job-site block
+function villagerTick(e,dt){
+  if(e.breedCD>0) e.breedCD-=dt;
+  if(e.food===undefined) e.food=e.baby?0:(Math.random()*7|0);
+  if(e.baby){ e.growT=(e.growT===undefined?VL.growT:e.growT)-dt;
+    if(e.growT<=0){ const hw=0.3; if(!aabbHits(e.x-hw,e.y+0.01,e.z-hw,e.x+hw,e.y+1.95,e.z+hw)){ e.baby=false; e.scale=1; e.w=0.6; e.h=1.95; e.growT=0; e.vc=null; Particles.burst(e.x,e.y+1,e.z,'happy',6,0.4); } else e.growT=5; } return; }
+  if(!e.bed || !e.ws){ e.claimT=(e.claimT===undefined?2+Math.random()*4:e.claimT)-dt; if(e.claimT<=0){ e.claimT=8+Math.random()*6; vClaim(e); } } }
+function vClaim(e){ const x0=Math.floor(e.x), y0=Math.floor(e.y), z0=Math.floor(e.z); const V=Entities.list.filter(o=>o!==e && o.type==='villager' && !o.dead);
+  const same=(a,b)=>a&&b&&a[0]===b[0]&&a[1]===b[1]&&a[2]===b[2];
+  let bed=null, bd=1e9, ws=null, wd=1e9;
+  for(let x=x0-20;x<=x0+20;x++) for(let z=z0-20;z<=z0+20;z++){ if(!isLoaded(x,z)) continue; for(let y=y0-5;y<=y0+6;y++){ const id=getBlock(x,y,z); if(!id) continue; const d=(x-x0)**2+(z-z0)**2+(y-y0)**2*4;
+      if(!e.bed && id===B.bed && (getMeta(x,y,z)&4) && d<bd){ const p=[x,y,z]; if(!V.some(o=>same(o.bed,p))){ bd=d; bed=p; } }
+      else if(!e.ws && WORKSTATION_IDS.has(id) && d<wd){ const p=[x,y,z]; if(V.some(o=>same(o.ws,p))) continue;
+        const nm=(BLOCKS[id].name||'').replace('lit_',''); const pi=GEN.WORKSTATION.indexOf(nm); if(pi<0 || (e.vxp>0 && pi!==e.prof)) continue; wd=d; ws=[x,y,z,pi]; } } }
+  if(bed){ e.bed=bed; const bp=[bed[0]+0.5,bed[1],bed[2]+0.5]; e.route=[bp,bp,bp,bp]; e.workRoute=null; Particles.burst(bed[0]+0.5,bed[1]+1,bed[2]+0.5,'happy',4,0.4); }
+  if(ws){ let st=null, sd=1e9; for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){ for(const dy of [0,-1,1]){ const nx=ws[0]+dx, ny=ws[1]+dy, nz=ws[2]+dz; if(pathStand(nx,ny,nz)){ const d=(nx-x0)**2+(nz-z0)**2; if(d<sd){ sd=d; st=[nx+0.5,ny,nz+0.5]; } break; } } }
+    if(st){ e.ws=ws.slice(0,3); e.work=st; e.workRoute=null; if(e.prof!==ws[3]){ e.prof=ws[3]; e.trades=null; e.vxp=0; e.vlv=0; }
+      if(!e.route){ e.route=[st,st,st,st]; } Particles.burst(ws[0]+0.5,ws[1]+1.2,ws[2]+0.5,'happy',5,0.4); SND.play('villager_yes',e); } } }
+// standing at the job-site block: work on it now and then (head nods, block bits / smoke / bubbles, sounds); returns where to look
+function villagerWork(e,dt){ const w=e.ws; if(!w) return null; const id=getBlock(w[0],w[1],w[2]);
+  e.restockT=(e.restockT||0)+dt; if(e.trades && e.restockT>240){ e.restockT=0; let any=false; for(const t of e.trades){ if(t.uses>0) any=true; t.uses=0; } if(any) Particles.burst(e.x,e.y+e.h+0.2,e.z,'happy',3,0.3); }
+  e.workT=(e.workT===undefined?Math.random():e.workT)-dt;
+  if(e.workT<=0){ e.workT=1.3+Math.random()*2; e.nodT=0.55; const cx=w[0]+0.5, cy=w[1]+1, cz=w[2]+0.5;
+    try { if(id===B.smoker||id===B.lit_smoker||id===B.blast_furnace||id===B.lit_blast_furnace) Particles.burst(cx,cy,cz,'smoke',3,0.2);
+      else if(id===B.brewing_stand||id===B.cauldron) Particles.burst(cx,cy-0.1,cz,'bubble',4,0.2);
+      else Particles.block(w[0],w[1]+0.55,w[2],id,4); } catch(err){}
+    if(Math.hypot(Player.x-e.x,Player.z-e.z)<20) SND.play('place',{x:cx,y:cy,z:cz},{mat:(BLOCKS[id]&&BLOCKS[id].snd)||'wood',vol:0.4});
+    if(Math.random()<0.15) Particles.burst(e.x,e.y+e.h+0.2,e.z,'happy',1,0.3);
+    if(e.prof===0 && Math.random()<0.25) e.food=(e.food||0)+2; } // farmers bring in the harvest
+  return {x:w[0]+0.5, y:w[1]+0.9-1.6, z:w[2]+0.5}; }
+// decide what to do next when idle
+function vDecide(e,L){ const tday=World.time%24000; const gather=tday>=9000 && tday<11500;
+  L.mode='idle'; L.t=2+Math.random()*4; L.run=false; L.slow=false; L.goal=null;
+  if(!e.baby && (e.food||0)<VL.foodNeed*1.5){ const F=vFoods(); let best=null, bd=10*10; for(const o of Entities.list){ if(o.type!=='item'||o.remove||!o.item||!F[o.item.id]||o===e.vlIgnore) continue; const d=(o.x-e.x)**2+(o.z-e.z)**2; if(d<bd && Math.abs(o.y-e.y)<3){ bd=d; best=o; } }
+    if(best){ L.mode='fetch'; L.item=best; L.t=12; return; } }
+  const r=Math.random();
+  if(r<(e.baby?0.45:0.4)){ const Q=nearestMob(e,16,o=>o.type==='villager' && o.vl && o.vl.mode==='idle' && !o.sleeping && !o.busy && !o.tradeLock && !!o.baby===!!e.baby && Math.abs(o.y-e.y)<4);
+    if(Q){ for(const [a,b,lead] of [[e,Q,true],[Q,e,false]]){ Object.assign(a.vl,{mode:'meet', partner:b, lead, t:15, goal:null}); } return; } }
+  const indoor=!vSkyOpen(Math.floor(e.x),Math.floor(e.y)+2,Math.floor(e.z));
+  if(r<0.85 || indoor){ const h=e.home||[e.x,e.y,e.z]; let g=null;
+    if(gather || (indoor && Math.random()<0.6) || Math.random()<0.3){ const c=vCenter(e); g=vSpot(c[0],c[1],c[2],c[3],true); }
+    if(!g) g=vSpot(h[0],h[1],h[2],e.baby?12:10,indoor || Math.random()<0.75);
+    if(g){ Object.assign(L,{mode:'go', goal:g, t:30, run:e.baby && Math.random()<0.6, slow:!e.baby && Math.random()<0.35}); return; } }
+  L.t=3+Math.random()*5; }
+function villagerLife(e,dt,def){
+  const L=e.vl||(e.vl={mode:'idle',t:0.5+Math.random()*2});
+  const spd=def.speed*(e.baby?1.3:1); const STAY={tx:0,tz:0,speed:0,want:false};
+  L.t-=dt;
+  const P=L.partner; if(P && (P.dead||P.remove||P.sleeping||P.busy||P.tradeLock||!P.vl||P.vl.partner!==e)) vEndSocial(e);
+  const face=o=>Math.atan2(-(o.x-e.x),-(o.z-e.z));
+  switch(L.mode){
+    case 'meet': { const Q=L.partner; const d=Math.hypot(Q.x-e.x,Q.z-e.z);
+      if(d<(e.baby?1.4:1.9) && Math.abs(Q.y-e.y)<1.5){ if(L.lead){ const t=VL.chat[0]+Math.random()*(VL.chat[1]-VL.chat[0]); for(const v of [e,Q]) Object.assign(v.vl,{mode:e.baby?'play':'chat', t:e.baby?2.5+Math.random()*2:t, talkT:Math.random()*1.2, goal:null}); SND.play('villager',e,{vol:0.7}); } return Object.assign({look:Q,yaw:face(Q)},STAY); }
+      if(L.t<=0){ vEndSocial(Q); vEndSocial(e); break; }
+      if(!L.goal) L.goal=[Q.x,Q.y,Q.z]; L.goal[0]=Q.x; L.goal[1]=Q.y; L.goal[2]=Q.z;
+      const r=walkTo(e,L.goal,1.6,spd*(e.baby?1.5:0.85),dt,def); if(r==='fail'){ vEndSocial(Q); vEndSocial(e); break; }
+      if(r==='arrived') return Object.assign({look:Q,yaw:face(Q)},STAY); r.look=Q; return r; }
+    case 'chat': { const Q=L.partner; if(!Q){ vEndSocial(e); break; } L.talkT-=dt;
+      if(L.talkT<=0){ L.talkT=1+Math.random()*1.8; e.nodT=0.6; if(Math.random()<0.5) SND.play(Math.random()<0.3?'villager_haggle':'villager',e,{vol:0.6}); if(Math.random()<0.3) Particles.burst(e.x,e.y+e.h+0.3,e.z,'happy',1,0.25); }
+      if(L.t<=0 && L.lead){ vShareFood(e,Q);
+        const can=!e.baby && !Q.baby && (e.breedCD||0)<=0 && (Q.breedCD||0)<=0 && (e.food||0)>=VL.foodNeed && (Q.food||0)>=VL.foodNeed && !isBedtime();
+        if(can){ if(vRoom(e)){ for(const v of [e,Q]) Object.assign(v.vl,{mode:'mate', t:4, hT:0}); }
+          else { for(const v of [e,Q]){ v.breedCD=90; Particles.burst(v.x,v.y+v.h+0.3,v.z,'angry',3,0.3); } SND.play('villager_no',e); vEndSocial(Q,1+Math.random()*3); vEndSocial(e,1+Math.random()*2); } }
+        else { vEndSocial(Q,0.5+Math.random()*2); vEndSocial(e,0.5+Math.random()*2); } }
+      else if(L.t<-2) vEndSocial(e);
+      return Object.assign({look:Q,yaw:face(Q)},STAY); }
+    case 'mate': { const Q=L.partner; if(!Q){ vEndSocial(e); break; } L.hT-=dt; if(L.hT<=0){ L.hT=0.45; Particles.burst(e.x,e.y+e.h+0.2,e.z,'heart',1,0.3); }
+      if(L.t<=0 && L.lead){ vMakeBaby(e,Q); vEndSocial(Q,2); vEndSocial(e,2); } else if(L.t<-2) vEndSocial(e);
+      return Object.assign({look:Q,yaw:face(Q)},STAY); }
+    case 'play': { const Q=L.partner; if(e.onGround && Math.random()<dt*2.5) e.vy=6.5;
+      if(L.t<=0){ vEndSocial(e,0); const g=vSpot(e.x,e.y,e.z,10,false); if(g) Object.assign(L,{mode:'go', goal:g, t:10, run:true}); break; }
+      return Q ? Object.assign({look:Q,yaw:face(Q)},STAY) : STAY; }
+    case 'fetch': { const it=L.item; if(!it || it.remove || !it.item){ vEndSocial(e,0.5); break; }
+      if(Math.hypot(it.x-e.x,it.z-e.z)<1.1 && Math.abs(it.y-e.y)<1.5){ const v=vFoods()[it.item.id]||1; const n=Math.min(it.item.count, Math.max(1,Math.ceil((VL.foodNeed*1.5-(e.food||0))/v)));
+        e.food=(e.food||0)+n*v; it.item.count-=n; if(it.item.count<=0) it.remove=true; SND.play('pop',e); e.nodT=0.5; if(e.food>=VL.foodNeed) Particles.burst(e.x,e.y+e.h+0.2,e.z,'heart',2,0.3); vEndSocial(e,0.3); break; }
+      if(!L.goal) L.goal=[it.x,it.y,it.z]; L.goal[0]=it.x; L.goal[1]=it.y; L.goal[2]=it.z;
+      const r=walkTo(e,L.goal,0.8,spd,dt,def); if(r==='fail' || L.t<=0){ e.vlIgnore=it; vEndSocial(e,1); break; }
+      if(r==='arrived') return {tx:it.x-e.x,tz:it.z-e.z,speed:spd*0.5,want:true}; return r; }
+    case 'go': { if(!L.goal || L.t<=0){ vEndSocial(e,1+Math.random()*2); break; }
+      const r=walkTo(e,L.goal,1.0,spd*(L.run?1.5:(L.slow?0.65:0.85)),dt,def);
+      if(r==='arrived' || r==='fail'){ vEndSocial(e, r==='arrived'?2+Math.random()*5:0.5); break; }
+      return r; }
+  }
+  // idle: stand and look around; when the timer runs out pick something to do
+  if(L.t>0){ if(!(e.lookT>0) && Math.random()<dt*0.7){ e.lookT=1+Math.random()*2; e.lookYaw=(Math.random()-0.5)*1.8; e.lookPitch=(Math.random()-0.5)*0.5; } return STAY; }
+  vDecide(e,L); return STAY; }
 // ---------- A* path finding for villagers (and anything else that wants it) ----------
 // cells: feet cell + head cell must be passable (air, plants, open or closed doors), something solid underneath; steps up 1, drops up to 3
 function pathPassable(x,y,z){ const id=getBlock(x,y,z); if(!id) return true; if(BLOCKS[id].door || CLIMB[id]) return true; if(id===B.lava||id===B.fire||id===B.cactus||id===B.cobweb) return false; return !cellBox(x,y,z); }
@@ -6689,7 +6842,7 @@ function updateEntities(dt){
   for(let i=L.length-1;i>=0;i--){
     const e=L[i]; e.age+=dt;
     if(!isLoaded(Math.floor(e.x),Math.floor(e.z))) { if(e.boat && e.rider!=='me' && Math.hypot(e.x-Player.x,e.z-Player.z)>(World.renderDist+1)*16){ Pets.stash(e); L.splice(i,1); continue; }
-      if(e.mob && e.rider!=='me' && Math.hypot(e.x-Player.x,e.z-Player.z)>(World.renderDist+1)*16){ if(e.vkey) villageSpawned.delete(e.vkey); if((e.tamed||e.saddled) && !e.netId) Pets.stash(e); L.splice(i,1); } continue; }
+      if(e.mob && e.rider!=='me' && Math.hypot(e.x-Player.x,e.z-Player.z)>(World.renderDist+1)*16){ if(e.vkey) villageSpawned.delete(e.vkey); if((e.tamed||e.saddled||e.bred) && !e.netId) Pets.stash(e); L.splice(i,1); } continue; }
     if(e.remove){ L.splice(i,1); continue; }
     if(e.type==='boat'){
       if(e.netId && World.remote && e.rider!=='me'){ if(e.nx!==undefined){ const k=Math.min(1,dt*10); e.x+=(e.nx-e.x)*k; e.y+=(e.ny-e.y)*k; e.z+=(e.nz-e.z)*k; e.yaw+=angDiff(e.nyaw,e.yaw)*k; if(e.npadL!==undefined){ e.padL+=(e.npadL-e.padL)*k; e.padR+=(e.npadR-e.padR)*k; } } if(e.hurtT>0) e.hurtT-=dt; continue; }
@@ -6752,6 +6905,30 @@ function updateEntities(dt){
     }
   }
 }
+// ---------- bodies push each other (player <-> mobs, mobs <-> mobs) by mass ----------
+// mass ~ volume of the hitbox; golems & co. are made extra heavy so you can't shove them, chickens and dogs go flying
+const MASS_CFG={ player:0.65, heavy:{iron_golem:80, ravager:30, warden:60, ender_dragon:500, wither:80, sniffer:12, happy_ghast:30, elder_guardian:20, copper_golem:2, camel:4, polar_bear:3, hoglin:3, zoglin:3, horse:1.4, skeleton_horse:1.4, zombie_horse:1.4, donkey:1.4, mule:1.4, llama:1.4, trader_llama:1.4} };
+function bodyMass(e){ if(e===Player) return MASS_CFG.player; const d=MOB[e.type]; if(d && (d.static || d.invulnerable && d.boss)) return 1e6;
+  let m=e.w*e.w*e.h; const H=MASS_CFG.heavy[e.type]; if(H) m*=H; else if(d && d.kbRes) m*=8; return Math.max(0.03,m); }
+function shove(e,dx,dz){ if(Math.abs(dx)<1e-5 && Math.abs(dz)<1e-5) return 0; const ox=e.x, oz=e.z, vx=e.vx, vz=e.vz, hh=e.hitH;
+  moveEntity(e,dx,0,dz); e.vx=vx; e.vz=vz; e.hitH=hh; return Math.hypot(e.x-ox,e.z-oz); }
+function resolveBodies(){
+  const B2=[]; const remote=World.remote;
+  if(!Player.dead && !Player.riding && !Player.sleeping) B2.push(Player);
+  for(const e of Entities.list){ if(!e.mob || e.dead || e.remove || e.sleeping || e.rider==='me' || e.riderPeer) continue; const d=MOB[e.type]; if(!d || d.noclip) continue; B2.push(e); }
+  for(let i=0;i<B2.length;i++){ const a=B2[i];
+    for(let j=i+1;j<B2.length;j++){ const b=B2[j]; const r=(a.w+b.w)/2; const dx=b.x-a.x, dz=b.z-a.z; if(Math.abs(dx)>=r || Math.abs(dz)>=r) continue;
+      if(a.y>=b.y+b.h-0.05 || b.y>=a.y+a.h-0.05) continue; // one stands on the other
+      let d=Math.hypot(dx,dz); let nx, nz; if(d<1e-4){ const ang=Math.random()*6.283; nx=Math.cos(ang); nz=Math.sin(ang); d=0; } else { nx=dx/d; nz=dz/d; }
+      const depth=Math.min(r-d, 0.25); if(depth<=0) continue;
+      const fixedA = a!==Player && remote && a.netId, fixedB = b!==Player && remote && b.netId; if(fixedA && fixedB) continue;
+      const ma=fixedA?1e9:bodyMass(a), mb=fixedB?1e9:bodyMass(b); const sa=mb/(ma+mb), sb=ma/(ma+mb);
+      // a little sideways slip so two walkers that meet head-on get past each other
+      const px=-nz, pz=nx, slip=(a!==Player && b!==Player)?0.25:0;
+      const mvB = sb>1e-4 ? shove(b,(nx+px*slip)*depth*sb,(nz+pz*slip)*depth*sb) : 0;
+      const restA = depth - Math.min(mvB, depth*sb);  // whatever b could not take (wall behind it), a has to give
+      if(!fixedA && restA>1e-4) shove(a,-(nx+px*slip)*restA,-(nz+pz*slip)*restA);
+    } } }
 function netLerp(e, dt){ // client side: follow host snapshots
   if(e.nx===undefined) return; const k=Math.min(1,dt*10); const ox=e.x, oz=e.z;
   e.x+=(e.nx-e.x)*k; e.y+=(e.ny-e.y)*k; e.z+=(e.nz-e.z)*k; e.yaw+=angDiff(e.nyaw,e.yaw)*k; e.headYaw+=((e.nhy||0)-e.headYaw)*k; e.headPitch+=((e.nhp||0)-e.headPitch)*k;
@@ -8048,7 +8225,7 @@ function frame(now){
     const steps = Math.ceil(dt/0.025); for(let i=0;i<steps;i++) updatePlayer(dt/steps, Game.state==='playing'?inp:{f:0,s:0,jump:false,sneak:false,sprint:false});
     if(Player.needSurface && isLoaded(Math.floor(Player.x),Math.floor(Player.z)) && getChunk(Math.floor(Player.x)>>4,Math.floor(Player.z)>>4).lit){ Player.needSurface=false; Player.y=surfaceY(Math.floor(Player.x),Math.floor(Player.z))+1; Player.vy=0; }
     tickAcc+=dt; let n=0; while(tickAcc>=0.05 && n<5){ tickAcc-=0.05; gameTick(); n++; } if(tickAcc>0.25) tickAcc=0;
-    updateEntities(dt); spawnTick(dt); Particles.petals(dt); Particles.update(dt); Net.update(dt); Weather.update(dt); Sleep.update(dt); Regions.update(dt); verifyBed();
+    updateEntities(dt); try { resolveBodies(); } catch(err){ console.warn('bodies',err); } spawnTick(dt); Particles.petals(dt); Particles.update(dt); Net.update(dt); Weather.update(dt); Sleep.update(dt); Regions.update(dt); verifyBed();
     if(Game.state==='playing') interact(dt, inp); else { Act.breakT=0; }
     lastLogic=now;
     if(Player.swingActive || Player.swing>0){ Player.swing+=dt*3.5; if(Player.swing>=1){ Player.swing=0; Player.swingActive=false; } }
@@ -8348,6 +8525,7 @@ const Riding={
     if(e.type==='villager' && e.sleeping && e.bed){ // wake him up and take the bed
       const b=e.bed; e.noBedT=performance.now()+60000; sleepTick(e,0,true); SND.play('villager',e);
       UI.showMessage('Житель проснулся и уступил кровать'); Sleep.use(b[0],b[1],b[2]); return true; }
+    if((e.type==='villager'||e.type==='wandering_trader') && !e.sleeping){ if(e.baby){ e.shakeT=0.6; SND.play('villager_no',e); return true; } UI.openTrade(e); return true; }
     if(MOB[e.type] && MOB[e.type].tameWith!==undefined || ['cat','ocelot','parrot'].includes(e.type)) return tameInteract(e, held);
     if(!MOB[e.type] || !MOB[e.type].horse) return false;
     if(held===idOf('saddle')){ if(!e.tamed){ UI.showMessage('Сначала приручите лошадь — садитесь на неё, пока не появятся сердечки'); return true; } if(!e.saddled){ e.saddled=true; Inventory.consume(1); SND.play('horse_saddle',e); Net.mobSet(e); } return true; }
@@ -8444,15 +8622,58 @@ const Boats={
     this.spawn(x,y,z,wood,Player.yaw); SND.play('place',{x,y,z},{mat:'wood'}); return true; }
 };
 // tamed horses are remembered with the world (other mobs are re-generated)
+// ---------------- VILLAGER TRADING ----------------
+// offers per profession and level: 'cost n [+ cost2 n] = result n [max uses]'; offers with items the game doesn't have are skipped
+const TRADE_DEF={
+  farmer:[['wheat 20 = emerald 1','potato 26 = emerald 1','carrot 22 = emerald 1','emerald 1 = bread 6'],['pumpkin 6 = emerald 1','emerald 1 = apple 4'],['melon 4 = emerald 1','emerald 3 = cookie 18'],['emerald 1 = cake 1','sweet_berries 10 = emerald 1'],['emerald 3 = golden_carrot 3','emerald 4 = glistering_melon_slice 3']],
+  librarian:[['paper 24 = emerald 1','emerald 9 = bookshelf 1'],['book 4 = emerald 1','emerald 1 = lantern 1'],['ink_sac 5 = emerald 1','emerald 1 = glass 4'],['writable_book 2 = emerald 1','emerald 5 = clock 1','emerald 4 = compass 1'],['emerald 20 = name_tag 1']],
+  armorer:[['coal 15 = emerald 1','emerald 36 = bell 1'],['iron_ingot 4 = emerald 1','emerald 1 = chain 1'],['lava_bucket 1 = emerald 1','diamond 1 = emerald 1'],['emerald 5 = shield 1','emerald 3 = iron_ingot 1'],['emerald 13 = diamond 1']],
+  butcher:[['chicken 14 = emerald 1','porkchop 7 = emerald 1','emerald 1 = cooked_chicken 8'],['coal 15 = emerald 1','emerald 1 = cooked_porkchop 5'],['mutton 7 = emerald 1','beef 10 = emerald 1'],['dried_kelp_block 10 = emerald 1','emerald 1 = cooked_beef 4'],['sweet_berries 10 = emerald 1','emerald 1 = cooked_mutton 4']],
+  cleric:[['rotten_flesh 32 = emerald 1','emerald 1 = redstone 2'],['gold_ingot 3 = emerald 1','emerald 1 = lapis_lazuli 1'],['rabbit_foot 2 = emerald 1','emerald 4 = glowstone 1'],['glass_bottle 9 = emerald 1','emerald 5 = ender_pearl 1'],['nether_wart 22 = emerald 1','emerald 3 = experience_bottle 1']],
+  fisherman:[['string 20 = emerald 1','coal 10 = emerald 1','cod 6 + emerald 1 = cooked_cod 6'],['cod 15 = emerald 1','salmon 6 + emerald 1 = cooked_salmon 6'],['salmon 13 = emerald 1','emerald 3 = fishing_rod 1'],['tropical_fish 6 = emerald 1','emerald 1 = cod_bucket 1'],['pufferfish 4 = emerald 1','emerald 2 = salmon 6']],
+  shepherd:[['white_wool 18 = emerald 1','brown_wool 18 = emerald 1','black_wool 18 = emerald 1','emerald 2 = shears 1'],['white_dye 12 = emerald 1','emerald 1 = white_wool 1','emerald 1 = light_blue_wool 1'],['yellow_dye 12 = emerald 1','emerald 3 = bed 1','emerald 3 = white_bed 1'],['emerald 3 = white_banner 1','brown_dye 12 = emerald 1'],['emerald 2 = painting 3']],
+  toolsmith:[['coal 15 = emerald 1','emerald 1 = stone_axe 1','emerald 1 = stone_shovel 1','emerald 1 = stone_pickaxe 1','emerald 1 = stone_hoe 1'],['iron_ingot 4 = emerald 1','emerald 36 = bell 1'],['flint 30 = emerald 1','emerald 3 = iron_axe 1','emerald 2 = iron_shovel 1','emerald 4 = iron_pickaxe 1'],['diamond 1 = emerald 1','emerald 12 = diamond_axe 1','emerald 5 = diamond_shovel 1'],['emerald 13 = diamond_pickaxe 1','emerald 8 = diamond_hoe 1']],
+  cartographer:[['paper 24 = emerald 1','emerald 7 = map 1'],['glass_pane 11 = emerald 1','emerald 4 = compass 1'],['compass 1 = emerald 1','emerald 2 = paper 12'],['emerald 7 = item_frame 1','emerald 3 = white_banner 1'],['emerald 8 = lodestone 1','emerald 5 = map 3']],
+  fletcher:[['stick 32 = emerald 1','emerald 1 = arrow 16','gravel 10 + emerald 1 = flint 10'],['flint 26 = emerald 1','emerald 2 = bow 1'],['string 14 = emerald 1','emerald 3 = crossbow 1'],['feather 24 = emerald 1','emerald 2 = arrow 32'],['tripwire_hook 8 = emerald 1','emerald 1 = target 2']],
+  leatherworker:[['leather 6 = emerald 1','emerald 1 = leather 2'],['flint 26 = emerald 1','emerald 3 = lead 1'],['rabbit_hide 9 = emerald 1','emerald 4 = book 3'],['turtle_scute 4 = emerald 1','emerald 4 = item_frame 2'],['emerald 6 = saddle 1']],
+  stonemason:[['clay_ball 10 = emerald 1','emerald 1 = brick 10'],['stone 20 = emerald 1','emerald 1 = chiseled_stone_bricks 4'],['granite 16 = emerald 1','andesite 16 = emerald 1','diorite 16 = emerald 1','emerald 1 = polished_andesite 4'],['quartz 12 = emerald 1','emerald 1 = terracotta 1','emerald 1 = white_glazed_terracotta 1'],['emerald 1 = quartz_block 1','emerald 1 = quartz_pillar 1']],
+  weaponsmith:[['coal 15 = emerald 1','emerald 3 = iron_axe 1','emerald 2 = iron_sword 1'],['iron_ingot 4 = emerald 1','emerald 36 = bell 1'],['flint 24 = emerald 1'],['diamond 1 = emerald 1','emerald 17 = diamond_axe 1'],['emerald 13 = diamond_sword 1']],
+  wandering_trader:[['emerald 1 = sand 8','emerald 1 = red_sand 4','emerald 3 = pumpkin 1','emerald 1 = cactus 1','emerald 1 = sugar_cane 1','emerald 1 = vine 1','emerald 1 = lily_pad 2','emerald 5 = blue_ice 1','emerald 4 = slime_ball 1','emerald 1 = glowstone 1','emerald 1 = gunpowder 1','emerald 1 = podzol 3','emerald 3 = packed_ice 1','emerald 5 = nautilus_shell 1','emerald 1 = oak_sapling 1','emerald 1 = cherry_sapling 1','emerald 1 = brown_mushroom 1','emerald 1 = kelp 1','emerald 1 = moss_block 2','emerald 1 = sea_pickle 1','emerald 3 = pointed_dripstone 2','emerald 1 = fern 1','water_bucket 1 = emerald 1','baked_potato 4 = emerald 1','fermented_spider_eye 1 = emerald 3']]
+};
+const PROF_RU={farmer:'Фермер',librarian:'Библиотекарь',armorer:'Бронник',butcher:'Мясник',cleric:'Священник',fisherman:'Рыбак',shepherd:'Пастух',toolsmith:'Инструментальщик',cartographer:'Картограф',fletcher:'Лучник',leatherworker:'Кожевник',stonemason:'Каменщик',weaponsmith:'Оружейник',wandering_trader:'Бродячий торговец'};
+const TRADE_LV=['Новичок','Ученик','Подмастерье','Эксперт','Мастер'], TRADE_XP=[0,10,70,150,250], TRADE_GAIN=[2,5,10,15,30];
+const Trades={
+  key(e){ return e.type==='wandering_trader' ? 'wandering_trader' : (GEN.PROFS[e.prof|0]||'farmer'); },
+  title(e){ return PROF_RU[this.key(e)]||'Житель'; },
+  parse(s,lv){ const [l,r]=s.split('='); const side=l.split('+').map(x=>x.trim().split(/\s+/)); const rs=r.trim().split(/\s+/);
+    const a=[safeId(side[0][0]),+side[0][1]], b=side[1]?[safeId(side[1][0]),+side[1][1]]:null, res=[safeId(rs[0]),+rs[1]];
+    if(a[0]===null||res[0]===null||(b&&b[0]===null)) return null; const buy=res[0]===safeId('emerald');
+    return {a,b,r:res,uses:0,max:+(rs[2]||(buy?16:12)),lv}; },
+  unlock(e,lv){ const D=TRADE_DEF[this.key(e)]||TRADE_DEF.farmer; const pool=(D[lv]||[]).map(s=>this.parse(s,lv)).filter(Boolean);
+    const n=e.type==='wandering_trader'?6:2; for(let i=0;i<n && pool.length;i++) e.trades.push(pool.splice(Math.random()*pool.length|0,1)[0]); },
+  ensure(e){ if(e.trades) return; e.trades=[]; e.vxp=e.vxp||0; e.vlv=0; this.unlock(e,0); while(e.vlv<4 && e.vxp>=TRADE_XP[e.vlv+1]){ e.vlv++; this.unlock(e,e.vlv); } },
+  count(id){ let n=0; for(const s of Inventory.slots) if(s && s.id===id) n+=s.count; return n; },
+  take(id,n){ for(let i=35;i>=0 && n>0;i--){ const s=Inventory.slots[i]; if(!s || s.id!==id) continue; const k=Math.min(n,s.count); s.count-=k; n-=k; if(s.count<=0) Inventory.slots[i]=null; } },
+  affordable(t){ return this.count(t.a[0])>=t.a[1] && (!t.b || this.count(t.b[0])>=t.b[1]); },
+  trade(e,i){ const t=e.trades && e.trades[i]; if(!t) return 'none'; if(t.uses>=t.max) return 'out'; if(!this.affordable(t)) return 'poor';
+    this.take(t.a[0],t.a[1]); if(t.b) this.take(t.b[0],t.b[1]);
+    const left=Inventory.add(t.r[0],t.r[1]); if(left>0) dropItem(Player.x,Player.y+1.2,Player.z,t.r[0],left);
+    t.uses++; UI.refreshHotbar();
+    if(e.type!=='wandering_trader'){ e.vxp=(e.vxp||0)+TRADE_GAIN[t.lv|0]; e.restockT=0;
+      let up=false; while(e.vlv<4 && e.vxp>=TRADE_XP[e.vlv+1]){ e.vlv++; this.unlock(e,e.vlv); up=true; }
+      if(up){ Particles.burst(e.x,e.y+e.h*0.6,e.z,'happy',10,0.6); SND.play('levelup',e); UI.showMessage(this.title(e)+': '+TRADE_LV[e.vlv]); } }
+    Particles.burst(e.x,e.y+e.h+0.2,e.z,'happy',2,0.3); e.nodT=0.5; return 'ok'; }
+};
 const Pets={
   key(e){ return e.petId || (e.petId='pet'+Date.now().toString(36)+(Math.random()*1e6|0).toString(36)); },
   stash(e){ if(!Game.meta || World.remote) return; const m=Game.meta; m.pets=m.pets||[]; const k=this.key(e); m.pets=m.pets.filter(p=>p.id!==k); m.pets.push(this.snap(e)); },
   snap(e){ if(e.boat) return {id:this.key(e), type:'boat', wood:e.wood, dim:World.dim, x:+e.x.toFixed(2), y:+e.y.toFixed(2), z:+e.z.toFixed(2), yaw:+e.yaw.toFixed(2)};
-    return {id:this.key(e), type:e.type, dim:World.dim, x:+e.x.toFixed(2), y:+e.y.toFixed(2), z:+e.z.toFixed(2), yaw:+e.yaw.toFixed(2), variant:e.variant, tamed:!!e.tamed, saddled:!!e.saddled, spd:e.spd, jump:e.jump, hp:e.hp, temper:e.temper||0}; },
+    return {id:this.key(e), type:e.type, dim:World.dim, x:+e.x.toFixed(2), y:+e.y.toFixed(2), z:+e.z.toFixed(2), yaw:+e.yaw.toFixed(2), variant:e.variant, tamed:!!e.tamed, saddled:!!e.saddled, spd:e.spd, jump:e.jump, hp:e.hp, temper:e.temper||0, v:e.bred?{baby:!!e.baby, growT:e.growT, prof:e.prof, style:e.style, food:e.food, home:e.home, vxp:e.vxp, vlv:e.vlv, trades:e.trades}:undefined}; },
   restore(c){ const m=Game.meta; if(!m || !m.pets || !m.pets.length || World.remote) return; const keep=[];
-    for(const p of m.pets){ if(p.dim===World.dim && (Math.floor(p.x)>>4)===c.cx && (Math.floor(p.z)>>4)===c.cz){ if(p.type==='boat'){ const b=Boats.spawn(p.x,p.y,p.z,p.wood,p.yaw); b.petId=p.id; continue; } const e=spawnMob(p.type,p.x,p.y+0.05,p.z,{variant:p.variant,tamed:p.tamed,saddled:p.saddled,spd:p.spd,jump:p.jump,temper:p.temper,petId:p.id}); e.hp=p.hp||e.hp; e.yaw=e.tyaw=p.yaw||0; } else keep.push(p); }
+    for(const p of m.pets){ if(p.dim===World.dim && (Math.floor(p.x)>>4)===c.cx && (Math.floor(p.z)>>4)===c.cz){ if(p.type==='boat'){ const b=Boats.spawn(p.x,p.y,p.z,p.wood,p.yaw); b.petId=p.id; continue; } const ex={variant:p.variant,tamed:p.tamed,saddled:p.saddled,spd:p.spd,jump:p.jump,temper:p.temper,petId:p.id}; if(p.v){ Object.assign(ex,p.v,{bred:true}); if(p.v.baby) Object.assign(ex,{scale:0.5,w:0.3,h:0.98}); }
+        const e=spawnMob(p.type,p.x,p.y+0.05,p.z,ex); e.hp=p.hp||e.hp; e.yaw=e.tyaw=p.yaw||0; } else keep.push(p); }
     m.pets=keep; },
-  serialize(){ const m=Game.meta; const out=(m&&m.pets?m.pets.slice():[]); for(const e of Entities.list) if(((e.mob && (e.tamed||e.saddled)) || e.boat) && !e.dead && !e.remove && !e.netId) out.push(this.snap(e)); return out; }
+  serialize(){ const m=Game.meta; const out=(m&&m.pets?m.pets.slice():[]); for(const e of Entities.list) if(((e.mob && (e.tamed||e.saddled||e.bred)) || e.boat) && !e.dead && !e.remove && !e.netId) out.push(this.snap(e)); return out; }
 };
 
 // ---------------- REGIONS (WorldGuard-style /rg) ----------------
@@ -9306,6 +9527,7 @@ const UI = (function(){
       }
     } else if(invKind==='survival'){ craftSection(top, Inventory.craft2, 2, 'Создание'); invSections(P); }
     else if(invKind==='crafting'){ craftSection(top, Inventory.craft3, 3, 'Верстак'); invSections(P); }
+    else if(invKind==='trade'){ tradeBox(top); invSections(P); }
     else if(invKind==='horse'){ const e=invHorse; const box=document.createElement('div'); box.className='furn horseinv';
       const spd=e?(e.spd||9):0, jmp=e?(e.jump||9):0; const jumpH=(jmp*jmp/(2*25)).toFixed(1);
       box.innerHTML=`<div class="ititle">Лошадь${e&&e.tamed?'':' (дикая)'}</div><div class="hstats">❤ ${e?Math.ceil(e.hp):0}/${MOB.horse.hp} · Скорость ${(spd).toFixed(1)} бл/с · Прыжок ${jumpH} бл</div>`;
@@ -9361,6 +9583,21 @@ const UI = (function(){
   }
   function openInventory(){ const r=Player.riding; if(r && MOB[r.type] && MOB[r.type].horse && r.tamed) return openHorse(r); openInv(Game.mode==='creative'?'creative':'survival'); }
   function openHorse(e){ invHorse=e; openInv('horse'); }
+  let invTrade=null;
+  function openTrade(e){ if(Game.state!=='playing') return; Trades.ensure(e); invTrade=e; e.tradeLock=true; e.vl && e.vl.partner && vEndSocial(e.vl.partner); e.vl && vEndSocial(e); openInv('trade'); SND.play('villager_haggle',e); }
+  function tradeBox(top){ const e=invTrade; if(!e) return; const box=document.createElement('div'); box.className='furn tradebox'; const isW=e.type==='wandering_trader'; const lv=e.vlv||0, nx=TRADE_XP[lv+1];
+    const pct = nx ? Math.max(0,Math.min(100,((e.vxp||0)-TRADE_XP[lv])/(nx-TRADE_XP[lv])*100)) : 100;
+    box.innerHTML='<div class="ititle">'+Trades.title(e)+'</div>'+(isW?'':'<div class="hstats">'+TRADE_LV[lv]+(nx?'':' · максимальный уровень')+'</div><div class="txp"><i style="width:'+pct+'%"></i></div>');
+    const list=document.createElement('div'); list.className='tlist';
+    const ic=it=>'<span class="tic"><i style="'+TEX.iconStyle(it[0],28)+'"></i>'+(it[1]>1?'<b>'+it[1]+'</b>':'')+'</span>';
+    e.trades.forEach((t,i)=>{ const b=document.createElement('button'); const out=t.uses>=t.max, can=Trades.affordable(t);
+      b.className='trow'+(out?' out':'')+(can?'':' poor');
+      b.innerHTML=ic(t.a)+(t.b?'<span class="tplus">+</span>'+ic(t.b):'<span class="tsp"></span>')+'<span class="tarr">'+(out?'✖':'➜')+'</span>'+ic(t.r)+'<span class="tname">'+nameOf(t.r[0])+(out?' · нет в наличии':'')+'</span>';
+      b.title=nameOf(t.a[0])+' ×'+t.a[1]+(t.b?' + '+nameOf(t.b[0])+' ×'+t.b[1]:'')+' → '+nameOf(t.r[0])+' ×'+t.r[1];
+      b.onclick=()=>{ const r=Trades.trade(e,i); if(r==='ok') SND.play('villager_yes',e); else { SND.play('villager_no',e); e.shakeT=0.5; showMessage(r==='out'?'Этот товар закончился — житель пополнит запасы за работой':'Не хватает: '+nameOf(t.a[0])+' ×'+t.a[1]+(t.b?' + '+nameOf(t.b[0])+' ×'+t.b[1]:'')); }
+        const sc=list.scrollTop; buildInv(); renderInv(); const nl=document.querySelector('.tlist'); if(nl) nl.scrollTop=sc; };
+      list.appendChild(b); });
+    box.appendChild(list); top.appendChild(box); }
   function openCrafting(){ openInv('crafting'); }
   function openFurnace(x,y,z){ openInv('furnace', getBE(x,y,z), [x,y,z]); }
   function openChest(x,y,z){ openInv('chest', getBE(x,y,z), [x,y,z]); }
@@ -9374,11 +9611,11 @@ const UI = (function(){
     if(Inventory.cursor){ const s=Inventory.cursor; const l=Inventory.add(s.id,s.count,s.dur); if(l>0) dropItem(Player.x,eyeY(),Player.z,s.id,l,null,s.dur); Inventory.cursor=null; }
     if(invKind==='chest' && invPos) SND.play('chest_close',{x:invPos[0],y:invPos[1],z:invPos[2]});
     if(invBE && invPos) Net.beChanged(invPos[0],invPos[1],invPos[2],invBE);
-    $('#inv').classList.remove('on'); $('#cursorItem').style.display='none'; Game.state='playing'; invKind=null; invHorse=null; refreshHotbar();
+    $('#inv').classList.remove('on'); $('#cursorItem').style.display='none'; Game.state='playing'; invKind=null; invHorse=null; if(invTrade){ invTrade.tradeLock=false; invTrade=null; } refreshHotbar();
     if(!Game.settings.touch){ const cv=$('#gl'); cv.requestPointerLock && cv.requestPointerLock(); }
   }
   return { init, show, refreshHotbar, refreshStats, updateModeSwitch, frame, showMessage, showItemName, toggleDebug, pause, resume, showDeath, showLoading, hideLoading, loadingProgress, enterGame,
-    checkWorlds, openInventory, openHorse, openCrafting, openFurnace, openChest, openBrewing, openStation, refreshOpen, closeInventory, openWorlds, chat, netStatus, title, toggleDayNight, nameTags, quitRemote, openChat, closeChat, applyAssets, openJoin, checkFull, refreshPeers };
+    checkWorlds, openInventory, openHorse, openTrade, tradeMob:()=>invTrade, openCrafting, openFurnace, openChest, openBrewing, openStation, refreshOpen, closeInventory, openWorlds, chat, netStatus, title, toggleDayNight, nameTags, quitRemote, openChat, closeChat, applyAssets, openJoin, checkFull, refreshPeers };
 })();
 
 // ===================== STORAGE (IndexedDB) =====================
